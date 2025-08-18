@@ -10,6 +10,8 @@ import SwiftUI
 struct RatingView: View {
     @StateObject private var imageQueue = ImageQueueService.shared
     @State private var currentPair: [ImageData] = []
+    @State private var nextPair: [ImageData]? = nil
+    @State private var pairKey: String = UUID().uuidString
     
     var body: some View {
         NavigationView {
@@ -37,22 +39,18 @@ struct RatingView: View {
                     }
                     Spacer()
                 } else if currentPair.count == 2 {
-                    // Two images stacked vertically
-                    VStack(spacing: 0) {
-                        ImageElement(
-                            imageData: currentPair[0],
-                            onTap: { handleImageSelection(currentPair[0]) },
-                            isTop: true
-                        )
-                        
-                        ImageElement(
-                            imageData: currentPair[1],
-                            onTap: { handleImageSelection(currentPair[1]) },
-                            isBottom: true
-                        )
-                    }
-                    .padding(.horizontal, 0)  // No horizontal padding for maximum width
-                    .padding(.bottom, 8)  // Small padding before tab bar
+                    // Swipeable card view with animation
+                    SwipeCardView(
+                        pair: currentPair,
+                        onComplete: { winner in
+                            handleImageSelection(winner)
+                        },
+                        nextPair: nextPair
+                    )
+                    .id(pairKey)  // Force view refresh when pair changes
+                    .padding(.horizontal, 16)  // Side padding for card
+                    .padding(.top, 8)  // Small top margin under island
+                    .padding(.bottom, 8)  // Small bottom margin above tab bar
                 } else {
                     Spacer()
                     Text("No images available")
@@ -72,6 +70,8 @@ struct RatingView: View {
         await imageQueue.initialize(gender: "female")
         if let pair = imageQueue.getCurrentPair() {
             currentPair = pair
+            // Preload next pair for smooth transition
+            nextPair = imageQueue.peekNextPair()
         }
     }
     
@@ -95,10 +95,11 @@ struct RatingView: View {
         }
         
         // Immediately show next pair (seamless transition)
-        if let nextPair = imageQueue.getNextPair() {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                currentPair = nextPair
-            }
+        if let newCurrentPair = imageQueue.getNextPair() {
+            // Update pairs and force SwipeCardView to reset
+            currentPair = newCurrentPair
+            nextPair = imageQueue.peekNextPair()
+            pairKey = UUID().uuidString  // Force view refresh
         } else {
             // Queue exhausted, need to reinitialize
             Task {

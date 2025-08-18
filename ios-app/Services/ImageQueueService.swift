@@ -104,6 +104,22 @@ class ImageQueueService: ObservableObject {
         return [activeBlock[currentIndex], activeBlock[currentIndex + 1]]
     }
     
+    func peekNextPair() -> [ImageData]? {
+        let nextIndex = currentIndex + 2
+        
+        // Check if next pair is in active block
+        if nextIndex + 1 < activeBlock.count {
+            return [activeBlock[nextIndex], activeBlock[nextIndex + 1]]
+        }
+        
+        // Check if next pair would be in buffer block
+        if !bufferBlock.isEmpty && bufferBlock.count >= 2 {
+            return [bufferBlock[0], bufferBlock[1]]
+        }
+        
+        return nil
+    }
+    
     func getNextPair() -> [ImageData]? {
         currentIndex += 2
         
