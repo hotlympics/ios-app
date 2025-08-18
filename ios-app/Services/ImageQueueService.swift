@@ -22,6 +22,7 @@ class ImageQueueService: ObservableObject {
     @Published var currentIndex = 0
     @Published var isLoading = false
     @Published var error: String?
+    @Published var isInitialized = false
     
     private var gender: String = "female"
     private var isFetchingBlock = false
@@ -29,13 +30,33 @@ class ImageQueueService: ObservableObject {
     private init() {}
     
     func initialize(gender: String = "female") async {
+        // If already initialized with the same gender, don't re-fetch
+        if isInitialized && self.gender == gender && !activeBlock.isEmpty {
+            return
+        }
+        
         self.gender = gender
         self.currentIndex = 0
         self.activeBlock = []
         self.bufferBlock = []
+        self.isInitialized = false
         
         // Load two blocks initially
         await loadInitialBlocks()
+        
+        // Mark as initialized once blocks are loaded
+        if !activeBlock.isEmpty {
+            isInitialized = true
+        }
+    }
+    
+    func reset() async {
+        isInitialized = false
+        currentIndex = 0
+        activeBlock = []
+        bufferBlock = []
+        error = nil
+        await initialize(gender: gender)
     }
     
     private func loadInitialBlocks() async {
@@ -142,7 +163,8 @@ class ImageQueueService: ObservableObject {
                     }
                 }
             } else {
-                // No more images available
+                // No more images available, mark as not initialized to force refresh
+                isInitialized = false
                 return nil
             }
         }

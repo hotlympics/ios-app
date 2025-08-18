@@ -68,9 +68,17 @@ struct RatingView: View {
     
     private func loadImages() async {
         await imageQueue.initialize(gender: "female")
-        if let pair = imageQueue.getCurrentPair() {
-            currentPair = pair
-            // Preload next pair for smooth transition
+        
+        // If we already have a current pair (returning to tab), use it
+        // Otherwise get the current pair from the queue
+        if currentPair.isEmpty {
+            if let pair = imageQueue.getCurrentPair() {
+                currentPair = pair
+                // Preload next pair for smooth transition
+                nextPair = imageQueue.peekNextPair()
+            }
+        } else {
+            // Just refresh the next pair preview
             nextPair = imageQueue.peekNextPair()
         }
     }
@@ -101,9 +109,14 @@ struct RatingView: View {
             nextPair = imageQueue.peekNextPair()
             pairKey = UUID().uuidString  // Force view refresh
         } else {
-            // Queue exhausted, need to reinitialize
+            // Queue exhausted, reset and reinitialize
+            currentPair = []
             Task {
-                await loadImages()
+                await imageQueue.reset()
+                if let pair = imageQueue.getCurrentPair() {
+                    currentPair = pair
+                    nextPair = imageQueue.peekNextPair()
+                }
             }
         }
     }
