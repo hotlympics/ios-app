@@ -76,16 +76,31 @@ struct RatingView: View {
     }
     
     private func handleImageSelection(_ selectedImage: ImageData) {
-        // TODO: Submit rating to server
-        print("Selected image: \(selectedImage.imageId)")
+        guard currentPair.count == 2 else { return }
         
-        // Load next pair
+        let winnerId = selectedImage.imageId
+        let loser = currentPair.first { $0.imageId != winnerId }
+        
+        guard let loserId = loser?.imageId else { return }
+        
+        // Submit rating to server (non-blocking)
+        Task {
+            let success = await RatingService.shared.submitRating(
+                winnerId: winnerId,
+                loserId: loserId
+            )
+            if !success {
+                print("Failed to submit rating for winner: \(winnerId), loser: \(loserId)")
+            }
+        }
+        
+        // Immediately show next pair (seamless transition)
         if let nextPair = imageQueue.getNextPair() {
             withAnimation(.easeInOut(duration: 0.3)) {
                 currentPair = nextPair
             }
         } else {
-            // No more pairs available, reload
+            // Queue exhausted, need to reinitialize
             Task {
                 await loadImages()
             }

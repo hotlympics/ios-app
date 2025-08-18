@@ -15,6 +15,7 @@ class ImageQueueService: ObservableObject {
     // For production: your actual server URL
     private let apiUrl = "http://localhost:3000"
     private let blockSize = 10
+    private let preloader = ImagePreloader.shared
     
     @Published var activeBlock: [ImageData] = []
     @Published var bufferBlock: [ImageData] = []
@@ -50,10 +51,12 @@ class ImageQueueService: ObservableObject {
             
             if let firstBlock = blocks[0], !firstBlock.isEmpty {
                 activeBlock = firstBlock
+                preloader.preloadImages(from: firstBlock)
             }
             
             if let secondBlock = blocks[1], !secondBlock.isEmpty {
                 bufferBlock = secondBlock
+                preloader.preloadImages(from: secondBlock)
             }
             
             if activeBlock.isEmpty {
@@ -118,6 +121,7 @@ class ImageQueueService: ObservableObject {
                        !newBlock.isEmpty {
                         await MainActor.run {
                             self.bufferBlock = newBlock
+                            self.preloader.preloadImages(from: newBlock)
                         }
                     }
                 }

@@ -48,28 +48,16 @@ struct ImageElement: View {
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
                     .overlay(
-                        AsyncImage(url: URL(string: imageData.imageUrl)) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .scaleEffect(1.5)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            case .failure(_):
-                                VStack(spacing: 8) {
-                                    Image(systemName: "photo")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.gray)
-                                    Text("Failed to load")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                            @unknown default:
-                                EmptyView()
-                            }
+                        CachedAsyncImage(
+                            urlString: imageData.imageUrl
+                        ) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .scaleEffect(1.5)
                         }
                     )
                     .clipShape(RoundedCornerShape(corners: corners, radius: cornerRadius))
