@@ -14,7 +14,7 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             RatingView()
                 .tabItem {
-                    Label("Rate", systemImage: "star.fill")
+                    Label("Rate", systemImage: "flame.fill")
                 }
                 .tag(0)
             
