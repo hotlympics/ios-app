@@ -1,0 +1,1 @@
+- After making changes to the code, remember to build the code and fix any build warnings and errors. Use the iPhone 16 Pro as the simulator when building

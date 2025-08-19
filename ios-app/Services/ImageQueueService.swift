@@ -29,13 +29,16 @@ class ImageQueueService: ObservableObject {
     
     private init() {}
     
-    func initialize(gender: String = "female") async {
+    func initialize() async {
+        // Determine gender based on user's gender (show opposite gender)
+        let viewingGender = await getViewingGender()
+        
         // If already initialized with the same gender, don't re-fetch
-        if isInitialized && self.gender == gender && !activeBlock.isEmpty {
+        if isInitialized && self.gender == viewingGender && !activeBlock.isEmpty {
             return
         }
         
-        self.gender = gender
+        self.gender = viewingGender
         self.currentIndex = 0
         self.activeBlock = []
         self.bufferBlock = []
@@ -50,13 +53,28 @@ class ImageQueueService: ObservableObject {
         }
     }
     
+    private func getViewingGender() async -> String {
+        // Get current user from FirebaseAuthService
+        if let user = FirebaseAuthService.shared.user {
+            // Show opposite gender to user's gender
+            if user.gender == "male" {
+                return "female"
+            } else if user.gender == "female" {
+                return "male"
+            }
+        }
+        
+        // Default to "female" for anonymous users or users with unknown gender
+        return "female"
+    }
+    
     func reset() async {
         isInitialized = false
         currentIndex = 0
         activeBlock = []
         bufferBlock = []
         error = nil
-        await initialize(gender: gender)
+        await initialize()
     }
     
     private func loadInitialBlocks() async {

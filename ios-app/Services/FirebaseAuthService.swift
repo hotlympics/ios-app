@@ -31,7 +31,7 @@ class FirebaseAuthService: ObservableObject {
     
     private let baseURL = "http://localhost:3000"
     
-    struct User: Codable {
+    struct User: Codable, Equatable {
         let id: String
         let firebaseUid: String
         let email: String

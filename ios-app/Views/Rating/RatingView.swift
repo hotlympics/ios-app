@@ -9,6 +9,7 @@ import SwiftUI
 
 struct RatingView: View {
     @StateObject private var imageQueue = ImageQueueService.shared
+    @StateObject private var authService = FirebaseAuthService.shared
     @State private var currentPair: [ImageData] = []
     @State private var nextPair: [ImageData]? = nil
     @State private var pairKey: String = UUID().uuidString
@@ -64,10 +65,19 @@ struct RatingView: View {
         .task {
             await loadImages()
         }
+        .onChange(of: authService.user) { _ in
+            // When user changes (login/logout), clear current pair and reload
+            currentPair = []
+            nextPair = nil
+            pairKey = UUID().uuidString  // Force view refresh
+            Task {
+                await loadImages()
+            }
+        }
     }
     
     private func loadImages() async {
-        await imageQueue.initialize(gender: "female")
+        await imageQueue.initialize()
         
         // If we already have a current pair (returning to tab), use it
         // Otherwise get the current pair from the queue
