@@ -9,28 +9,64 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
+    @State private var showingUploadSheet = false
+    @StateObject private var authService = FirebaseAuthService.shared
     
     var body: some View {
         TabView(selection: $selectedTab) {
             RatingView()
                 .tabItem {
-                    Label("Rate", systemImage: "flame.fill")
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 24))
                 }
                 .tag(0)
             
             LeaderboardView()
                 .tabItem {
-                    Label("Leaderboard", systemImage: "trophy.fill")
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 24))
                 }
                 .tag(1)
             
+            // Upload tab - shows SignInPromptView if not authenticated
+            NavigationView {
+                if authService.isAuthenticated {
+                    Text("") // Empty view - will trigger sheet
+                        .navigationBarHidden(true)
+                        .onAppear {
+                            showingUploadSheet = true
+                        }
+                } else {
+                    SignInPromptView(message: "Sign in to upload photos")
+                        .navigationBarHidden(true)
+                }
+            }
+            .tabItem {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 24))
+            }
+            .tag(2)
+            
+            MyPhotosView()
+                .tabItem {
+                    Image(systemName: "photo.stack")
+                        .font(.system(size: 24))
+                }
+                .tag(3)
+            
             ProfileView()
                 .tabItem {
-                    Label("Profile", systemImage: "person.fill")
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 24))
                 }
-                .tag(2)
+                .tag(4)
         }
         .accentColor(.blue)
+        .sheet(isPresented: $showingUploadSheet) {
+            Text("Photo Upload Coming Soon")
+                .font(.title2)
+                .padding()
+        }
     }
 }
 
