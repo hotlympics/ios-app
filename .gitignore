@@ -1,0 +1,14 @@
+# iOS App specific
+ios-app/GoogleService-Info.plist
+ios-app/Info.plist
+
+# Xcode
+ios-app.xcodeproj/project.xcworkspace/xcshareddata/
+ios-app.xcodeproj/xcuserdata/
+ios-app.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# macOS
+.DS_Store

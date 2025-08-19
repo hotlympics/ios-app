@@ -6,12 +6,24 @@
 //
 
 import SwiftUI
+import Firebase
+import GoogleSignIn
 
 @main
 struct ios_appApp: App {
+    init() {
+        FirebaseApp.configure()
+        print("Firebase configured successfully")
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    print("Handling URL: \(url)")
+                    let handled = GIDSignIn.sharedInstance.handle(url)
+                    print("URL handled by GIDSignIn: \(handled)")
+                }
         }
     }
 }

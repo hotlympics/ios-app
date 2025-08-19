@@ -30,6 +30,11 @@ class RatingService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
+        // Add authentication header if user is authenticated
+        if let token = await FirebaseAuthService.shared.getIdToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
         let body = [
             "winnerId": winnerId,
             "loserId": loserId
