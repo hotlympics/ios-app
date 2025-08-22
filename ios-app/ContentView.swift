@@ -72,8 +72,8 @@ struct ContentView: View {
         }
         .onChange(of: showingUploadSheet) { isShowing in
             if !isShowing && selectedTab == 2 {
-                // Reset to previous tab when upload sheet is dismissed
-                selectedTab = 0
+                // Navigate to My Photos tab after upload
+                selectedTab = 3
             }
         }
     }

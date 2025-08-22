@@ -66,6 +66,8 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - Smart caching with 5-minute validity period
   - Preloads images when fetching user data
   - Forces refresh after pool updates or photo uploads
+  - Handles photo deletion with optimistic UI updates
+  - Automatically removes deleted photos from pool
   - Cache cleared on user logout
 
 ### View Components
@@ -76,19 +78,19 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - **UploadView**: Photo upload interface with library/camera selection
   - PhotosPicker integration for gallery access
   - Camera capture support via UIImagePickerController
+  - Direct upload without cropping
   - Loading states during image processing
   - Upload progress display
 - **MyPhotosView**: User's uploaded photos management
   - Grid display of uploaded photos (2 columns)
   - Pool selection interface (max 2 photos)
   - Visual indicators for selected photos (green ring + checkmark)
+  - Photo deletion with confirmation alerts
+  - Special warning for photos in rating pool
+  - Dynamic success messages for different actions
+  - Messages appear above tab bar with proper styling
   - Pull-to-refresh functionality
   - Smart caching - doesn't reload when switching tabs
-- **ImageCropper**: Custom square cropping tool
-  - UIScrollView-based implementation
-  - Pinch-to-zoom and pan gestures
-  - Outputs 400x400 square images
-  - Full-screen modal presentation
 
 ### Data Flow
 1. App launches → Firebase configured
@@ -96,6 +98,7 @@ After making changes, build the project and fix any warnings or errors. Test on 
 3. User rates pairs → RatingService submits to backend
 4. Queue advances → Buffer block becomes active, new buffer fetched
 5. Authentication state changes → Queue resets with appropriate gender filter
+6. Photo upload completes → Redirects to My Photos tab to show uploaded photo
 
 ### API Integration
 - **Base URL**: Currently hardcoded to `http://localhost:3000` in service classes
@@ -108,6 +111,7 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - `GET /images/user` - Fetch user's uploaded images
   - `GET /user` - Fetch user profile with pool selections
   - `PUT /user/pool` - Update pool image selections
+  - `DELETE /images/{imageId}` - Delete user's uploaded photo
 - **Authentication**: Bearer token from Firebase Auth added to requests when available
 
 ### Key Patterns

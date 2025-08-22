@@ -149,6 +149,64 @@ class UserService: ObservableObject {
         return false
     }
     
+    func deletePhoto(photoId: String) async -> Bool {
+        guard let token = await FirebaseAuthService.shared.getIdToken() else {
+            print("No auth token available")
+            return false
+        }
+        
+        // Store the original photos for rollback on error
+        let originalPhotos = userPhotos
+        let originalCount = uploadedPhotosCount
+        let originalPoolCount = poolPhotosCount
+        
+        // Optimistically update UI (remove photo immediately)
+        await MainActor.run {
+            if let photoToDelete = userPhotos.first(where: { $0.id == photoId }) {
+                userPhotos.removeAll { $0.id == photoId }
+                uploadedPhotosCount = userPhotos.count
+                if photoToDelete.isInPool {
+                    poolPhotosCount = max(0, poolPhotosCount - 1)
+                }
+            }
+        }
+        
+        do {
+            let url = URL(string: "\(baseURL)/images/\(photoId)")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "DELETE"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 200 {
+                // Update last fetch time to maintain cache validity
+                await MainActor.run {
+                    self.lastFetchTime = Date()
+                }
+                return true
+            } else {
+                // Restore original state on error
+                await MainActor.run {
+                    userPhotos = originalPhotos
+                    uploadedPhotosCount = originalCount
+                    poolPhotosCount = originalPoolCount
+                }
+                return false
+            }
+        } catch {
+            print("Error deleting photo: \(error)")
+            // Restore original state on error
+            await MainActor.run {
+                userPhotos = originalPhotos
+                uploadedPhotosCount = originalCount
+                poolPhotosCount = originalPoolCount
+            }
+            return false
+        }
+    }
+    
     func clearCache() {
         userPhotos = []
         uploadedPhotosCount = 0

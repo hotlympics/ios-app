@@ -11,10 +11,8 @@ import PhotosUI
 struct UploadView: View {
     @StateObject private var uploadService = UploadService.shared
     @State private var selectedItem: PhotosPickerItem?
-    @State private var selectedImage: UIImage?
     @State private var showingImagePicker = false
     @State private var showingCamera = false
-    @State private var showingCropper = false
     @State private var showingActionSheet = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -69,32 +67,12 @@ struct UploadView: View {
             }
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraView { image in
-                    selectedImage = image
                     showingCamera = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        showingCropper = true
+                    Task {
+                        await uploadPhoto(image)
                     }
                 } onCancel: {
                     showingCamera = false
-                }
-            }
-            .fullScreenCover(isPresented: $showingCropper) {
-                if let image = selectedImage {
-                    ImageCropper(
-                        image: image,
-                        onCrop: { croppedImage in
-                            showingCropper = false
-                            selectedImage = nil
-                            Task {
-                                await uploadPhoto(croppedImage)
-                            }
-                        },
-                        onCancel: {
-                            showingCropper = false
-                            selectedImage = nil
-                        }
-                    )
-                    .ignoresSafeArea()
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -188,14 +166,11 @@ struct UploadView: View {
             if let data = try await item.loadTransferable(type: Data.self) {
                 if let image = UIImage(data: data) {
                     await MainActor.run {
-                        self.selectedImage = image
                         self.isLoadingImage = false
                         self.selectedItem = nil
-                        // Add a small delay to ensure UI updates properly
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            self.showingCropper = true
-                        }
                     }
+                    // Upload the image directly
+                    await uploadPhoto(image)
                 } else {
                     throw NSError(domain: "UploadView", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid image data"])
                 }

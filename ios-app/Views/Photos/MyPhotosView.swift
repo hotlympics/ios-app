@@ -15,6 +15,10 @@ struct MyPhotosView: View {
     @State private var showSuccessMessage = false
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var photoToDelete: UserService.UserPhoto?
+    @State private var showDeleteConfirmation = false
+    @State private var isDeletingPhoto = false
+    @State private var successMessageText = ""  // Dynamic success message
     
     private let columns = [
         GridItem(.flexible()),
@@ -104,7 +108,12 @@ struct MyPhotosView: View {
                                     PhotoGridItem(
                                         photo: photo,
                                         isSelected: selectedPhotos.contains(photo.id),
-                                        onTap: { togglePhotoSelection(photo.id) }
+                                        onTap: { togglePhotoSelection(photo.id) },
+                                        onDelete: { 
+                                            photoToDelete = photo
+                                            showDeleteConfirmation = true
+                                        },
+                                        isDeleting: isDeletingPhoto && photoToDelete?.id == photo.id
                                     )
                                 }
                             }
@@ -115,49 +124,81 @@ struct MyPhotosView: View {
                         await refreshPhotos()
                     }
                     
-                    // Success/Error messages
-                    if showSuccessMessage {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Pool selections updated successfully!")
-                                .font(.caption)
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color.green.opacity(0.1))
-                        .transition(.move(edge: .bottom))
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                withAnimation {
-                                    showSuccessMessage = false
-                                }
-                            }
-                        }
-                    }
-                    
-                    if let error = errorMessage {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.red)
-                            Text(error)
-                                .font(.caption)
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color.red.opacity(0.1))
-                        .transition(.move(edge: .bottom))
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                withAnimation {
-                                    errorMessage = nil
-                                }
+                }
+                .background(Color(UIColor.systemBackground))
+                .navigationBarHidden(true)
+                .onChange(of: showSuccessMessage) { isShowing in
+                    if isShowing {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            withAnimation {
+                                showSuccessMessage = false
                             }
                         }
                     }
                 }
-                .background(Color(UIColor.systemBackground))
-                .navigationBarHidden(true)
+                .onChange(of: errorMessage) { newError in
+                    if newError != nil {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            withAnimation {
+                                errorMessage = nil
+                            }
+                        }
+                    }
+                }
+                .overlay(
+                    // Success/Error messages overlay at bottom
+                    VStack {
+                        Spacer()
+                        
+                        if showSuccessMessage {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.white)
+                                Text(successMessageText)
+                                    .font(.caption)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.green.opacity(0.9))
+                            .cornerRadius(8)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)  // Small padding to lift it above tab bar
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                        
+                        if let error = errorMessage {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text(error)
+                                    .font(.caption)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(Color.red.opacity(0.9))
+                            .cornerRadius(8)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)  // Small padding to lift it above tab bar
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        }
+                    }
+                )
+                .alert(isPresented: $showDeleteConfirmation) {
+                    Alert(
+                        title: Text("Delete Photo"),
+                        message: Text(photoToDelete?.isInPool == true 
+                            ? "This photo is currently in the rating pool. Deleting it will remove it from the pool and delete all associated data. Are you sure?"
+                            : "This will permanently delete the photo and all associated data. Are you sure?"),
+                        primaryButton: .destructive(Text("Delete")) {
+                            if let photo = photoToDelete {
+                                deletePhoto(photo)
+                            }
+                        },
+                        secondaryButton: .cancel() {
+                            photoToDelete = nil
+                        }
+                    )
+                }
                 .onAppear {
                     Task {
                         // Fetch user data (will use cache if available)
@@ -170,6 +211,33 @@ struct MyPhotosView: View {
                 // Not authenticated - show sign in prompt
                 SignInPromptView(message: "Sign in to view your photos")
                     .navigationBarHidden(true)
+            }
+        }
+    }
+    
+    private func deletePhoto(_ photo: UserService.UserPhoto) {
+        isDeletingPhoto = true
+        
+        // Remove from selected photos if it was selected
+        if selectedPhotos.contains(photo.id) {
+            selectedPhotos.remove(photo.id)
+        }
+        
+        Task {
+            let success = await userService.deletePhoto(photoId: photo.id)
+            
+            await MainActor.run {
+                isDeletingPhoto = false
+                photoToDelete = nil
+                
+                if success {
+                    successMessageText = "Photo deleted successfully!"
+                    showSuccessMessage = true
+                    // Update selected photos from refreshed data
+                    selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
+                } else {
+                    errorMessage = "Failed to delete photo. Please try again."
+                }
             }
         }
     }
@@ -206,6 +274,7 @@ struct MyPhotosView: View {
             await MainActor.run {
                 isUpdatingPool = false
                 if success {
+                    successMessageText = "Pool selections updated successfully!"
                     showSuccessMessage = true
                     // Refresh the selected photos from the updated data
                     selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
@@ -221,6 +290,8 @@ struct PhotoGridItem: View {
     let photo: UserService.UserPhoto
     let isSelected: Bool
     let onTap: () -> Void
+    var onDelete: (() -> Void)? = nil
+    var isDeleting: Bool = false
     
     var body: some View {
         Button(action: onTap) {
@@ -257,6 +328,39 @@ struct PhotoGridItem: View {
                                 .font(.system(size: 14, weight: .bold))
                         )
                         .padding(8)
+                }
+                
+                // Delete button (top-right corner)
+                if onDelete != nil {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                onDelete?()
+                            }) {
+                                Image(systemName: "trash.fill")
+                                    .foregroundColor(.white)
+                                    .font(.system(size: 14))
+                                    .padding(6)
+                                    .background(Color.red)
+                                    .clipShape(Circle())
+                            }
+                            .disabled(isDeleting)
+                            .padding(8)
+                        }
+                        Spacer()
+                    }
+                }
+                
+                // Deleting overlay
+                if isDeleting {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.5))
+                        .cornerRadius(8)
+                        .overlay(
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        )
                 }
             }
         }
