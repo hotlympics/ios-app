@@ -53,11 +53,20 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - **FirebaseAuthService**: Manages Firebase authentication and Google Sign-In
 - **AuthService**: Protocol-based abstraction for authentication operations
 - **ImagePreloader**: Pre-loads images for smooth transitions
+  - NSCache-based image caching with 50-image limit
+  - Shared across all views for consistent cache access
+  - Automatic cache clearing on memory pressure
 - **UploadService**: Manages photo upload workflow
   - Requests signed upload URL from backend
   - Uploads compressed images to Firebase Storage
   - Tracks upload progress and status
   - Handles upload confirmation with backend
+  - Forces UserService data refresh after successful upload
+- **UserService**: Manages user photos and pool selections
+  - Smart caching with 5-minute validity period
+  - Preloads images when fetching user data
+  - Forces refresh after pool updates or photo uploads
+  - Cache cleared on user logout
 
 ### View Components
 - **SwipeCardView**: Core rating interface with swipe gestures and animations
@@ -69,6 +78,12 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - Camera capture support via UIImagePickerController
   - Loading states during image processing
   - Upload progress display
+- **MyPhotosView**: User's uploaded photos management
+  - Grid display of uploaded photos (2 columns)
+  - Pool selection interface (max 2 photos)
+  - Visual indicators for selected photos (green ring + checkmark)
+  - Pull-to-refresh functionality
+  - Smart caching - doesn't reload when switching tabs
 - **ImageCropper**: Custom square cropping tool
   - UIScrollView-based implementation
   - Pinch-to-zoom and pan gestures
@@ -91,6 +106,8 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - `POST /images/request-upload` - Request signed upload URL
   - `POST /images/confirm-upload/{imageId}` - Confirm successful upload
   - `GET /images/user` - Fetch user's uploaded images
+  - `GET /user` - Fetch user profile with pool selections
+  - `PUT /user/pool` - Update pool image selections
 - **Authentication**: Bearer token from Firebase Auth added to requests when available
 
 ### Key Patterns
