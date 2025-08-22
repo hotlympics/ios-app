@@ -37,9 +37,11 @@ After making changes, build the project and fix any warnings or errors. Test on 
 
 ### App Structure
 - **Main Entry**: `ios_appApp.swift` - Configures Firebase, handles URL schemes for Google Sign-In
-- **Navigation**: Tab-based UI with three main sections:
+- **Navigation**: Tab-based UI with five main sections:
   - Rating (flame icon) - Image pair rating interface
   - Leaderboard (trophy icon) - Top-rated images display
+  - Upload (plus icon) - Photo upload (requires authentication)
+  - My Photos (photo stack icon) - User's uploaded photos
   - Profile (person icon) - User authentication and account management
 
 ### Services Layer (Singleton Pattern)
@@ -51,12 +53,27 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - **FirebaseAuthService**: Manages Firebase authentication and Google Sign-In
 - **AuthService**: Protocol-based abstraction for authentication operations
 - **ImagePreloader**: Pre-loads images for smooth transitions
+- **UploadService**: Manages photo upload workflow
+  - Requests signed upload URL from backend
+  - Uploads compressed images to Firebase Storage
+  - Tracks upload progress and status
+  - Handles upload confirmation with backend
 
 ### View Components
 - **SwipeCardView**: Core rating interface with swipe gestures and animations
 - **CachedAsyncImage**: Custom image loader with caching and placeholder support
 - **ImageElement**: Individual image display component with loading states
 - **SignInView**: Authentication UI with email/password and Google Sign-In options
+- **UploadView**: Photo upload interface with library/camera selection
+  - PhotosPicker integration for gallery access
+  - Camera capture support via UIImagePickerController
+  - Loading states during image processing
+  - Upload progress display
+- **ImageCropper**: Custom square cropping tool
+  - UIScrollView-based implementation
+  - Pinch-to-zoom and pan gestures
+  - Outputs 400x400 square images
+  - Full-screen modal presentation
 
 ### Data Flow
 1. App launches → Firebase configured
@@ -71,6 +88,9 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - `GET /images/block?gender={gender}&count={count}` - Fetch image blocks
   - `POST /ratings` - Submit rating with winnerId/loserId
   - `GET /leaderboards/{gender}` - Fetch leaderboard data
+  - `POST /images/request-upload` - Request signed upload URL
+  - `POST /images/confirm-upload/{imageId}` - Confirm successful upload
+  - `GET /images/user` - Fetch user's uploaded images
 - **Authentication**: Bearer token from Firebase Auth added to requests when available
 
 ### Key Patterns
@@ -79,3 +99,4 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - Async/await for network operations
 - Task-based concurrent fetching for performance
 - Protocol-oriented design for service abstractions
+- When making changes to the codebase, always update the CLAUDE.md with relevant informationt to reflect the changes if necessary

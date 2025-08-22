@@ -219,6 +219,8 @@ class FirebaseAuthService: ObservableObject {
             user = nil
             isAuthenticated = false
             clearStoredCredentials()
+            // Clear user data cache
+            UserService.shared.clearCache()
         } catch {
             errorMessage = "Failed to sign out"
         }

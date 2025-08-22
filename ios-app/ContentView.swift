@@ -36,6 +36,11 @@ struct ContentView: View {
                         .onAppear {
                             showingUploadSheet = true
                         }
+                        .onChange(of: selectedTab) { newValue in
+                            if newValue == 2 && authService.isAuthenticated {
+                                showingUploadSheet = true
+                            }
+                        }
                 } else {
                     SignInPromptView(message: "Sign in to upload photos")
                         .navigationBarHidden(true)
@@ -63,9 +68,13 @@ struct ContentView: View {
         }
         .accentColor(.blue)
         .sheet(isPresented: $showingUploadSheet) {
-            Text("Photo Upload Coming Soon")
-                .font(.title2)
-                .padding()
+            UploadView()
+        }
+        .onChange(of: showingUploadSheet) { isShowing in
+            if !isShowing && selectedTab == 2 {
+                // Reset to previous tab when upload sheet is dismissed
+                selectedTab = 0
+            }
         }
     }
 }

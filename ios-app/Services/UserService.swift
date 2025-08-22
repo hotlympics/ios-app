@@ -15,24 +15,46 @@ class UserService: ObservableObject {
     @Published var userPhotos: [UserPhoto] = []
     
     private let baseURL = "http://localhost:3000"
+    private var lastFetchTime: Date?
+    private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
+    private let preloader = ImagePreloader.shared
     
     private init() {}
     
-    struct UserPhoto: Identifiable {
+    struct UserPhoto: Identifiable, Hashable {
         let id: String
         let url: String
         let isInPool: Bool
         let stats: PhotoStats?
+        
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(id)
+        }
+        
+        static func == (lhs: UserPhoto, rhs: UserPhoto) -> Bool {
+            lhs.id == rhs.id
+        }
     }
     
-    struct PhotoStats {
+    struct PhotoStats: Hashable {
         let rating: Double
         let wins: Int
         let losses: Int
         let battles: Int
     }
     
-    func fetchUserData() async {
+    private var isDataStale: Bool {
+        guard let lastFetch = lastFetchTime else { return true }
+        return Date().timeIntervalSince(lastFetch) > cacheValidityDuration
+    }
+    
+    func fetchUserData(forceRefresh: Bool = false) async {
+        // Skip fetching if we have fresh data and not forcing refresh
+        if !forceRefresh && !userPhotos.isEmpty && !isDataStale {
+            print("Using cached user data")
+            return
+        }
+        
         guard let token = await FirebaseAuthService.shared.getIdToken() else {
             print("No auth token available")
             return
@@ -47,6 +69,11 @@ class UserService: ObservableObject {
             let (data, _) = try await URLSession.shared.data(for: request)
             
             if let images = try? JSONDecoder().decode([ImageResponse].self, from: data) {
+                // Preload all images to cache
+                for image in images {
+                    preloader.loadImage(from: image.url)
+                }
+                
                 await MainActor.run {
                     self.userPhotos = images.map { image in
                         UserPhoto(
@@ -61,7 +88,7 @@ class UserService: ObservableObject {
             }
             
             // Fetch user profile to get pool image IDs
-            let profileURL = URL(string: "\(baseURL)/user/profile")!
+            let profileURL = URL(string: "\(baseURL)/user")!
             var profileRequest = URLRequest(url: profileURL)
             profileRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             
@@ -69,17 +96,23 @@ class UserService: ObservableObject {
             
             if let profile = try? JSONDecoder().decode(UserProfile.self, from: profileData) {
                 await MainActor.run {
-                    self.poolPhotosCount = profile.poolImageIds.count
+                    let poolIds = profile.poolImageIds ?? []
+                    self.poolPhotosCount = poolIds.count
                     // Update isInPool status for photos
                     self.userPhotos = self.userPhotos.map { photo in
                         UserPhoto(
                             id: photo.id,
                             url: photo.url,
-                            isInPool: profile.poolImageIds.contains(photo.id),
+                            isInPool: poolIds.contains(photo.id),
                             stats: photo.stats
                         )
                     }
                 }
+            }
+            
+            // Update last fetch time on successful fetch
+            await MainActor.run {
+                self.lastFetchTime = Date()
             }
         } catch {
             print("Error fetching user data: \(error)")
@@ -106,7 +139,7 @@ class UserService: ObservableObject {
             
             if let httpResponse = response as? HTTPURLResponse,
                httpResponse.statusCode == 200 {
-                await fetchUserData() // Refresh data
+                await fetchUserData(forceRefresh: true) // Force refresh data after update
                 return true
             }
         } catch {
@@ -114,6 +147,13 @@ class UserService: ObservableObject {
         }
         
         return false
+    }
+    
+    func clearCache() {
+        userPhotos = []
+        uploadedPhotosCount = 0
+        poolPhotosCount = 0
+        lastFetchTime = nil
     }
 }
 
@@ -124,6 +164,10 @@ private struct ImageResponse: Decodable {
 }
 
 private struct UserProfile: Decodable {
-    let uploadedImageIds: [String]
-    let poolImageIds: [String]
+    let id: String
+    let email: String
+    let uploadedImageIds: [String]?
+    let poolImageIds: [String]?
+    let gender: String?
+    let rateCount: Int?
 }
