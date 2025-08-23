@@ -22,13 +22,13 @@ struct ImagePairView: View {
     
     var body: some View {
         ZStack {
-            Color.white
+            Color.black
             
             VStack(spacing: 0) {
                 // Top image area
                 ZStack {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.1))
+                        .fill(Color.gray.opacity(0.2))
                     
                     CachedAsyncImageView(urlString: topImageUrl) { image in
                         image
@@ -48,12 +48,12 @@ struct ImagePairView: View {
                 .onTapGesture(perform: onTopTap)
                 
                 Divider()
-                    .background(Color.gray.opacity(0.3))
+                    .background(Color.gray.opacity(0.5))
                 
                 // Bottom image area
                 ZStack {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.1))
+                        .fill(Color.gray.opacity(0.2))
                     
                     CachedAsyncImageView(urlString: bottomImageUrl) { image in
                         image

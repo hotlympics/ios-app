@@ -41,6 +41,6 @@ struct PoolSelectionBarView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(UIColor.systemGray6))
+        .background(Color(UIColor.systemGray5))
     }
 }

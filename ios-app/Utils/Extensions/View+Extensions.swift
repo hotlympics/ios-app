@@ -11,9 +11,9 @@ extension View {
     /// Applies a card style with shadow and corner radius
     func cardStyle(cornerRadius: CGFloat = 12) -> some View {
         self
-            .background(Color.white)
+            .background(Color(UIColor.secondarySystemBackground))
             .cornerRadius(cornerRadius)
-            .shadow(color: .black.opacity(0.1), radius: 5, x: 0, y: 2)
+            .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 2)
     }
     
     /// Conditionally applies a modifier

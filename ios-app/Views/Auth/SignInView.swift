@@ -67,10 +67,10 @@ struct SignInView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(Color.white)
+                        .background(Color(UIColor.secondarySystemBackground))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.gray.opacity(0.5), lineWidth: 1)
                         )
                         .cornerRadius(8)
                     }

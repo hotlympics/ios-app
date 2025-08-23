@@ -136,6 +136,7 @@ struct ContentView: View {
             }
             .tag(4)
         }
+        .preferredColorScheme(.dark)
         .accentColor(.blue)
         .sheet(isPresented: $showingUploadSheet) {
             UploadView()
