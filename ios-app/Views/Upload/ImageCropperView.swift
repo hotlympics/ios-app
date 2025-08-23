@@ -224,33 +224,27 @@ class ImageCropperUIView: UIView {
     func performCrop() -> UIImage? {
         guard let image = image else { return nil }
         
-        // Account for content insets when calculating visible rect
-        let contentInset = scrollView.contentInset
         let contentOffset = scrollView.contentOffset
         let zoomScale = scrollView.zoomScale
         
-        // The actual content offset adjusted for insets
-        let adjustedOffsetX = contentOffset.x + contentInset.left
-        let adjustedOffsetY = contentOffset.y + contentInset.top
+        // Calculate what part of the zoomed content is visible in the crop frame
+        // The crop frame is a fixed window in view coordinates
+        // We need to find what content is visible through this window
+        let visibleContentX = contentOffset.x + cropFrame.origin.x
+        let visibleContentY = contentOffset.y + cropFrame.origin.y
         
-        // Calculate what part of the image is visible in the crop frame
-        // The crop frame position relative to the image origin
-        let cropInImageX = adjustedOffsetX + cropFrame.origin.x
-        let cropInImageY = adjustedOffsetY + cropFrame.origin.y
-        
-        // Convert to original image coordinates
+        // Convert to original image coordinates by dividing by zoom scale
         let cropRect = CGRect(
-            x: cropInImageX / zoomScale,
-            y: cropInImageY / zoomScale,
+            x: visibleContentX / zoomScale,
+            y: visibleContentY / zoomScale,
             width: cropFrame.width / zoomScale,
             height: cropFrame.height / zoomScale
         )
         
         print("📸 Crop Debug:")
         print("  - Content offset: \(contentOffset)")
-        print("  - Content inset: \(contentInset)")
-        print("  - Adjusted offset: (\(adjustedOffsetX), \(adjustedOffsetY))")
         print("  - Crop frame: \(cropFrame)")
+        print("  - Visible content: (\(visibleContentX), \(visibleContentY))")
         print("  - Zoom scale: \(zoomScale)")
         print("  - Final crop rect: \(cropRect)")
         
