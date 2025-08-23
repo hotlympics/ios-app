@@ -61,12 +61,6 @@ struct SwipeCardView: View {
                 .gesture(createDragGesture())
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: dragOffset)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: exitDirection)
-                
-                // Swipe indicator overlay
-                SwipeIndicatorView(
-                    dragOffset: dragOffset,
-                    isDragging: isDragging
-                )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)

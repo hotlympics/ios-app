@@ -38,17 +38,19 @@ After making changes, build the project and fix any warnings or errors. Test on 
 ### App Structure
 - **Main Entry**: `App/ios_appApp.swift` - Configures Firebase, handles URL schemes for Google Sign-In
 - **Navigation**: Tab-based UI with five main sections:
-  - Rating (flame icon) - Image pair rating interface with swipe gestures
-  - Leaderboard (trophy icon) - Top-rated images display with Glicko-2 scores
-  - Upload (plus icon) - Photo upload with cropping (requires authentication)
-  - My Photos (photo stack icon) - User's uploaded photos and pool management
-  - Profile (person icon) - User authentication and account management
+  - Rating (flame icon) - Image pair rating interface with swipe gestures (unrestricted)
+  - Leaderboard (trophy icon) - Top-rated images display with Glicko-2 scores (unrestricted)
+  - Upload (plus icon) - Photo upload with cropping (requires authentication and complete profile)
+  - My Photos (photo stack icon) - User's uploaded photos and pool management (requires authentication and complete profile)
+  - Profile (person icon) - User authentication and account management (requires authentication and complete profile)
 
 ### Services Layer (Singleton Pattern)
 - **auth/FirebaseAuthService**: Manages Firebase authentication and Google Sign-In
   - Google OAuth flow with GIDSignIn SDK
   - Token management and automatic session restoration
   - Backend profile sync on authentication changes
+  - Profile update methods for gender/DOB and Terms of Service acceptance
+  - Tracks current user with profile completion status
 - **data/ImageQueueService**: Dual-block image queue system for seamless rating flow
   - Maintains active and buffer blocks (10 images each)
   - Pre-fetches next block while user rates current pairs
@@ -90,9 +92,12 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - PhotoCellView: Individual photo cell with selection state
   - PoolSelectionBarView: Pool management interface
   - EmptyPhotosView: Empty state display
-- **Auth/**: Authentication views
+- **Auth/**: Authentication and profile setup views
   - SignInView: Email/password and Google Sign-In
   - SignInPromptView: Authentication prompt for protected features
+  - ProfileSetupView: Container for sequential profile completion flow
+  - GenderDOBSetupView: Form for entering gender and date of birth
+  - TermsOfServiceView: Display and acceptance of Terms of Service
 - **shared/**: Reusable components
   - CachedAsyncImageView: Custom image loader with caching
 
@@ -120,9 +125,11 @@ After making changes, build the project and fix any warnings or errors. Test on 
    - Backend confirmation → UserService cache refresh
    - Automatic navigation to My Photos tab
 
-3. **Authentication Flow**:
+3. **Authentication & Profile Setup Flow**:
    - Google Sign-In via OAuth → Firebase credential creation
    - Backend sync for user profile → Token storage
+   - Profile completion check → Shows ProfileSetupView if incomplete
+   - Sequential flow: Gender/DOB entry → Terms of Service acceptance
    - All services notified of auth state changes
    - Image queue and caches reset appropriately
 
@@ -136,9 +143,31 @@ After making changes, build the project and fix any warnings or errors. Test on 
   - `POST /images/confirm-upload/{imageId}` - Confirm successful upload
   - `GET /images/user` - Fetch user's uploaded images
   - `GET /user` - Fetch user profile with pool selections
+  - `PUT /user/profile` - Update user gender and date of birth
+  - `POST /user/accept-tos` - Accept Terms of Service with version
   - `PUT /user/pool` - Update pool image selections
   - `DELETE /images/{imageId}` - Delete user's uploaded photo
 - **Authentication**: Bearer token from Firebase Auth added to requests when available
+
+### Profile Completion Requirements
+Users must complete their profile before accessing Upload, My Photos, and Profile tabs:
+1. **Gender**: Must be set to "male" or "female" (not "unknown")
+2. **Date of Birth**: Required for age verification (must be 18+)
+3. **Terms of Service**: Must accept current version (1.0)
+
+The app enforces these requirements:
+- Shows ProfileSetupView instead of tab content when profile is incomplete
+- Sequential flow: Gender/DOB first, then ToS acceptance
+- Server-side validation prevents uploads without complete profile
+- Rating and Leaderboard tabs remain accessible without profile completion
+
+### User Data Model
+The User struct includes:
+- **Basic Info**: id, email, displayName, photoUrl, firebaseUid, googleId
+- **Profile**: gender, dateOfBirth, tosVersion, tosAcceptedAt
+- **Photos**: uploadedImageIds (user's photos), poolImageIds (photos in rating pool)
+- **Stats**: rateCount (number of ratings performed)
+- **Computed Properties**: isProfileComplete, needsGenderAndDOB, needsToSAcceptance
 
 ### Key Implementation Patterns
 - Singleton services with shared instances for state management
@@ -149,3 +178,4 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - Protocol-oriented design for service abstractions
 - Optimistic UI updates with rollback on errors
 - Multi-tier caching strategy (images, user data, API responses)
+- Profile completion tracking to prevent unwanted upload prompts
