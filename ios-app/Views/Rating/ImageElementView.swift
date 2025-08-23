@@ -48,7 +48,7 @@ struct ImageElement: View {
                 Rectangle()
                     .fill(Color.gray.opacity(0.2))
                     .overlay(
-                        CachedAsyncImage(
+                        CachedAsyncImageView(
                             urlString: imageData.imageUrl
                         ) { image in
                             image

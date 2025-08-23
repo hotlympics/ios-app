@@ -8,31 +8,12 @@
 import SwiftUI
 
 struct MyPhotosView: View {
+    @StateObject private var viewModel = MyPhotosViewModel()
     @StateObject private var authService = FirebaseAuthService.shared
-    @StateObject private var userService = UserService.shared
-    @State private var selectedPhotos = Set<String>()
-    @State private var isUpdatingPool = false
-    @State private var showSuccessMessage = false
-    @State private var errorMessage: String?
-    @State private var isRefreshing = false
-    @State private var photoToDelete: UserService.UserPhoto?
-    @State private var showDeleteConfirmation = false
-    @State private var isDeletingPhoto = false
-    @State private var successMessageText = ""  // Dynamic success message
-    
-    private let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
-    
-    var hasChanges: Bool {
-        let currentPoolIds = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
-        return selectedPhotos != currentPoolIds
-    }
     
     var body: some View {
         NavigationView {
-            if authService.isAuthenticated {
+            if viewModel.isAuthenticated {
                 VStack(spacing: 0) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
@@ -40,7 +21,7 @@ struct MyPhotosView: View {
                             .font(.largeTitle)
                             .fontWeight(.bold)
                         
-                        Text("\(userService.userPhotos.count)/10 photos uploaded")
+                        Text("\(viewModel.userPhotos.count)/10 photos uploaded")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -48,325 +29,83 @@ struct MyPhotosView: View {
                     .padding()
                     
                     // Pool selection bar
-                    if !userService.userPhotos.isEmpty {
-                        HStack {
-                            Text("Select up to 2 photos for the rating pool (\(selectedPhotos.count)/2 selected)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            Button(action: savePoolSelection) {
-                                if isUpdatingPool {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Text("Save Pool Selection")
-                                        .font(.caption)
-                                        .fontWeight(.medium)
-                                }
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(hasChanges && !isUpdatingPool ? Color.green : Color.gray.opacity(0.3))
-                            .foregroundColor(.white)
-                            .cornerRadius(6)
-                            .disabled(!hasChanges || isUpdatingPool)
-                        }
-                        .padding(.horizontal)
-                        .padding(.vertical, 8)
-                        .background(Color(UIColor.systemGray6))
+                    if !viewModel.userPhotos.isEmpty {
+                        PoolSelectionBarView(
+                            selectedCount: viewModel.selectedPhotos.count,
+                            hasChanges: viewModel.hasChanges,
+                            isUpdating: viewModel.isUpdatingPool,
+                            onSave: viewModel.savePoolSelection
+                        )
                     }
                     
                     // Photo grid or empty state
                     ScrollView {
-                        if userService.userPhotos.isEmpty && !isRefreshing {
-                            // Empty state
-                            VStack(spacing: 20) {
-                                Spacer(minLength: 100)
-                                
-                                Image(systemName: "photo.stack")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.gray.opacity(0.5))
-                                
-                                Text("No photos uploaded yet")
-                                    .font(.title2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("Upload photos to see them here")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                
-                                Spacer(minLength: 100)
-                            }
-                            .frame(maxWidth: .infinity)
+                        if viewModel.userPhotos.isEmpty && !viewModel.isRefreshing {
+                            EmptyPhotosView()
                         } else {
-                            // Photo grid
-                            LazyVGrid(columns: columns, spacing: 12) {
-                                ForEach(userService.userPhotos) { photo in
-                                    PhotoGridItem(
-                                        photo: photo,
-                                        isSelected: selectedPhotos.contains(photo.id),
-                                        onTap: { togglePhotoSelection(photo.id) },
-                                        onDelete: { 
-                                            photoToDelete = photo
-                                            showDeleteConfirmation = true
-                                        },
-                                        isDeleting: isDeletingPhoto && photoToDelete?.id == photo.id
-                                    )
-                                }
-                            }
-                            .padding()
+                            PhotoGridView(
+                                photos: viewModel.userPhotos,
+                                selectedPhotos: viewModel.selectedPhotos,
+                                onPhotoTap: viewModel.togglePhotoSelection,
+                                onPhotoDelete: viewModel.confirmDeletePhoto,
+                                deletingPhotoId: viewModel.isDeletingPhoto ? viewModel.photoToDelete?.id : nil
+                            )
                         }
                     }
                     .refreshable {
-                        await refreshPhotos()
+                        await viewModel.refreshPhotos()
                     }
-                    
                 }
                 .background(Color(UIColor.systemBackground))
                 .navigationBarHidden(true)
-                .onChange(of: showSuccessMessage) { isShowing in
-                    if isShowing {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            withAnimation {
-                                showSuccessMessage = false
-                            }
-                        }
-                    }
+                .onChange(of: viewModel.showSuccessMessage) { _ in
+                    viewModel.dismissMessages()
                 }
-                .onChange(of: errorMessage) { newError in
-                    if newError != nil {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            withAnimation {
-                                errorMessage = nil
-                            }
-                        }
-                    }
+                .onChange(of: viewModel.errorMessage) { _ in
+                    viewModel.dismissMessages()
                 }
                 .overlay(
                     // Success/Error messages overlay at bottom
                     VStack {
                         Spacer()
                         
-                        if showSuccessMessage {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.white)
-                                Text(successMessageText)
-                                    .font(.caption)
-                                Spacer()
-                            }
-                            .padding()
-                            .background(Color.green.opacity(0.9))
-                            .cornerRadius(8)
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)  // Small padding to lift it above tab bar
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        if viewModel.showSuccessMessage {
+                            SuccessMessageView(
+                                message: viewModel.successMessageText,
+                                isSuccess: true
+                            )
                         }
                         
-                        if let error = errorMessage {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                Text(error)
-                                    .font(.caption)
-                                Spacer()
-                            }
-                            .padding()
-                            .background(Color.red.opacity(0.9))
-                            .cornerRadius(8)
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)  // Small padding to lift it above tab bar
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        if let error = viewModel.errorMessage {
+                            SuccessMessageView(
+                                message: error,
+                                isSuccess: false
+                            )
                         }
                     }
                 )
-                .alert(isPresented: $showDeleteConfirmation) {
+                .alert(isPresented: $viewModel.showDeleteConfirmation) {
                     Alert(
                         title: Text("Delete Photo"),
-                        message: Text(photoToDelete?.isInPool == true 
+                        message: Text(viewModel.photoToDelete?.isInPool == true
                             ? "This photo is currently in the rating pool. Deleting it will remove it from the pool and delete all associated data. Are you sure?"
                             : "This will permanently delete the photo and all associated data. Are you sure?"),
                         primaryButton: .destructive(Text("Delete")) {
-                            if let photo = photoToDelete {
-                                deletePhoto(photo)
-                            }
+                            viewModel.deletePhoto()
                         },
-                        secondaryButton: .cancel() {
-                            photoToDelete = nil
-                        }
+                        secondaryButton: .cancel(viewModel.cancelDelete)
                     )
                 }
                 .onAppear {
                     Task {
-                        // Fetch user data (will use cache if available)
-                        await userService.fetchUserData()
-                        // Initialize selected photos from current pool
-                        selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
+                        await viewModel.loadPhotos()
                     }
                 }
             } else {
-                // Not authenticated - show sign in prompt
                 SignInPromptView(message: "Sign in to view your photos")
                     .navigationBarHidden(true)
             }
         }
-    }
-    
-    private func deletePhoto(_ photo: UserService.UserPhoto) {
-        isDeletingPhoto = true
-        
-        // Remove from selected photos if it was selected
-        if selectedPhotos.contains(photo.id) {
-            selectedPhotos.remove(photo.id)
-        }
-        
-        Task {
-            let success = await userService.deletePhoto(photoId: photo.id)
-            
-            await MainActor.run {
-                isDeletingPhoto = false
-                photoToDelete = nil
-                
-                if success {
-                    successMessageText = "Photo deleted successfully!"
-                    showSuccessMessage = true
-                    // Update selected photos from refreshed data
-                    selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
-                } else {
-                    errorMessage = "Failed to delete photo. Please try again."
-                }
-            }
-        }
-    }
-    
-    private func togglePhotoSelection(_ photoId: String) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            if selectedPhotos.contains(photoId) {
-                selectedPhotos.remove(photoId)
-            } else {
-                if selectedPhotos.count < 2 {
-                    selectedPhotos.insert(photoId)
-                } else {
-                    // Show error - max 2 photos
-                    errorMessage = "You can only select up to 2 photos for the pool"
-                }
-            }
-        }
-    }
-    
-    private func refreshPhotos() async {
-        isRefreshing = true
-        await userService.fetchUserData(forceRefresh: true)
-        selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
-        isRefreshing = false
-    }
-    
-    private func savePoolSelection() {
-        isUpdatingPool = true
-        errorMessage = nil
-        
-        Task {
-            let success = await userService.updatePoolSelection(imageIds: Array(selectedPhotos))
-            
-            await MainActor.run {
-                isUpdatingPool = false
-                if success {
-                    successMessageText = "Pool selections updated successfully!"
-                    showSuccessMessage = true
-                    // Refresh the selected photos from the updated data
-                    selectedPhotos = Set(userService.userPhotos.filter { $0.isInPool }.map { $0.id })
-                } else {
-                    errorMessage = "Failed to update pool selection"
-                }
-            }
-        }
-    }
-}
-
-struct PhotoGridItem: View {
-    let photo: UserService.UserPhoto
-    let isSelected: Bool
-    let onTap: () -> Void
-    var onDelete: (() -> Void)? = nil
-    var isDeleting: Bool = false
-    
-    var body: some View {
-        Button(action: onTap) {
-            ZStack(alignment: .topLeading) {
-                // Photo
-                CachedAsyncImage(urlString: photo.url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(1, contentMode: .fill)
-                        .clipped()
-                } placeholder: {
-                    Rectangle()
-                        .foregroundColor(Color(UIColor.systemGray5))
-                        .overlay(
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle())
-                        )
-                }
-                .aspectRatio(1, contentMode: .fit)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.green : Color.clear, lineWidth: 3)
-                )
-                
-                // Selection indicator
-                if isSelected {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 28, height: 28)
-                        .overlay(
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.white)
-                                .font(.system(size: 14, weight: .bold))
-                        )
-                        .padding(8)
-                }
-                
-                // Delete button (top-right corner)
-                if onDelete != nil {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                onDelete?()
-                            }) {
-                                Image(systemName: "trash.fill")
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 14))
-                                    .padding(6)
-                                    .background(Color.red)
-                                    .clipShape(Circle())
-                            }
-                            .disabled(isDeleting)
-                            .padding(8)
-                        }
-                        Spacer()
-                    }
-                }
-                
-                // Deleting overlay
-                if isDeleting {
-                    Rectangle()
-                        .fill(Color.black.opacity(0.5))
-                        .cornerRadius(8)
-                        .overlay(
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        )
-                }
-            }
-        }
-        .buttonStyle(PlainButtonStyle())
-        .scaleEffect(isSelected ? 0.95 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 

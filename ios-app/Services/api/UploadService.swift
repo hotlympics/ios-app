@@ -30,8 +30,11 @@ class UploadService: ObservableObject {
     
     func requestUploadUrl(fileExtension: String = "jpg") async throws -> UploadUrlResponse {
         guard let token = await FirebaseAuthService.shared.getIdToken() else {
+            print("ERROR: Failed to get Firebase ID token")
             throw UploadError.notAuthenticated
         }
+        
+        print("Got token for upload request")
         
         guard let url = URL(string: "\(baseURL)/images/request-upload") else {
             throw UploadError.invalidURL
@@ -45,10 +48,21 @@ class UploadService: ObservableObject {
         let body = ["fileExtension": fileExtension]
         request.httpBody = try JSONEncoder().encode(body)
         
+        print("Sending request to: \(url)")
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("ERROR: Invalid response type")
+            throw UploadError.requestFailed
+        }
+        
+        print("Response status code: \(httpResponse.statusCode)")
+        
+        if httpResponse.statusCode != 200 {
+            if let errorString = String(data: data, encoding: .utf8) {
+                print("ERROR Response body: \(errorString)")
+            }
             throw UploadError.requestFailed
         }
         
@@ -137,8 +151,17 @@ class UploadService: ObservableObject {
             self.uploadStatus = "Requesting upload permission..."
         }
         
+        print("Starting upload process...")
+        
         // Request upload URL
-        let uploadResponse = try await requestUploadUrl(fileExtension: "jpg")
+        let uploadResponse: UploadUrlResponse
+        do {
+            uploadResponse = try await requestUploadUrl(fileExtension: "jpg")
+            print("Successfully got upload URL")
+        } catch {
+            print("ERROR requesting upload URL: \(error)")
+            throw error
+        }
         
         await MainActor.run {
             self.uploadStatus = "Uploading to cloud..."

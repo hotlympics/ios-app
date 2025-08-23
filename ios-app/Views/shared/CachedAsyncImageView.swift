@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct CachedAsyncImage<Content: View, Placeholder: View>: View {
+struct CachedAsyncImageView<Content: View, Placeholder: View>: View {
     let urlString: String
     let content: (Image) -> Content
     let placeholder: () -> Placeholder
@@ -81,7 +81,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 }
 
-extension CachedAsyncImage {
+extension CachedAsyncImageView {
     init(
         urlString: String,
         @ViewBuilder content: @escaping (Image) -> Content

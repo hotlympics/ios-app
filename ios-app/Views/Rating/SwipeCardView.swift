@@ -23,161 +23,50 @@ struct SwipeCardView: View {
     
     private let dragThreshold: CGFloat = 80
     private let velocityThreshold: CGFloat = 700
-    private let cornerRadius: CGFloat = 16
     
     var topImage: ImageData { pair[0] }
     var bottomImage: ImageData { pair[1] }
     
     var body: some View {
         GeometryReader { geometry in
-            // Calculate card dimensions to fill available space with small margins
-            let availableHeight = geometry.size.height
-            let availableWidth = geometry.size.width
-            
-            // Card should be as large as possible while maintaining 1:2 ratio
-            // Calculate based on height constraint (most limiting on phones)
-            let heightBasedWidth = availableHeight / 2
-            let widthBasedWidth = availableWidth
-            
-            // Use the smaller of the two to ensure it fits
-            let cardWidth = min(heightBasedWidth, widthBasedWidth, 400)
-            let cardHeight = cardWidth * 2 // 1:2 aspect ratio (two square images stacked)
+            let cardWidth = calculateCardWidth(geometry: geometry)
+            let cardHeight = cardWidth * 2
             let offscreenDistance = geometry.size.height + 200
             
             ZStack {
                 // Background next pair (visible during swipe)
                 if let nextPair = nextPair, nextPair.count == 2 {
-                    ZStack {
-                        Color.white
-                        
-                        VStack(spacing: 0) {
-                            // Top image
-                            ZStack {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.1))
-                                
-                                CachedAsyncImage(urlString: nextPair[0].imageUrl) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(width: cardWidth, height: cardWidth)
-                                        .clipped()
-                                } placeholder: {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle())
-                                        .scaleEffect(1.5)
-                                }
-                            }
-                            .frame(width: cardWidth, height: cardWidth)
-                            .clipShape(RoundedCornerShape(corners: [.topLeft, .topRight], radius: cornerRadius))
-                            
-                            Divider()
-                                .background(Color.gray.opacity(0.3))
-                            
-                            // Bottom image
-                            ZStack {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.1))
-                                
-                                CachedAsyncImage(urlString: nextPair[1].imageUrl) { image in
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                        .frame(width: cardWidth, height: cardWidth)
-                                        .clipped()
-                                } placeholder: {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle())
-                                        .scaleEffect(1.5)
-                                }
-                            }
-                            .frame(width: cardWidth, height: cardWidth)
-                            .clipShape(RoundedCornerShape(corners: [.bottomLeft, .bottomRight], radius: cornerRadius))
-                        }
-                    }
-                    .frame(width: cardWidth, height: cardHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    ImagePairView(
+                        topImageUrl: nextPair[0].imageUrl,
+                        bottomImageUrl: nextPair[1].imageUrl,
+                        cardWidth: cardWidth,
+                        onTopTap: {},
+                        onBottomTap: {}
+                    )
                     .allowsHitTesting(false)
                 }
                 
                 // Main swipeable card
-                ZStack {
-                    Color.white
-                    
-                    VStack(spacing: 0) {
-                        // Top image area
-                        ZStack {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.1))
-                            
-                            CachedAsyncImage(urlString: topImage.imageUrl) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: cardWidth, height: cardWidth)
-                                    .clipped()
-                            } placeholder: {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .scaleEffect(1.5)
-                            }
-                        }
-                        .frame(width: cardWidth, height: cardWidth)
-                        .clipShape(RoundedCornerShape(corners: [.topLeft, .topRight], radius: cornerRadius))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectImage(.up)
-                        }
-                        
-                        Divider()
-                            .background(Color.gray.opacity(0.3))
-                        
-                        // Bottom image area
-                        ZStack {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.1))
-                            
-                            CachedAsyncImage(urlString: bottomImage.imageUrl) { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: cardWidth, height: cardWidth)
-                                    .clipped()
-                            } placeholder: {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle())
-                                    .scaleEffect(1.5)
-                            }
-                        }
-                        .frame(width: cardWidth, height: cardWidth)
-                        .clipShape(RoundedCornerShape(corners: [.bottomLeft, .bottomRight], radius: cornerRadius))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectImage(.down)
-                        }
-                    }
-                }
-                .frame(width: cardWidth, height: cardHeight)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                ImagePairView(
+                    topImageUrl: topImage.imageUrl,
+                    bottomImageUrl: bottomImage.imageUrl,
+                    cardWidth: cardWidth,
+                    onTopTap: { selectImage(.up) },
+                    onBottomTap: { selectImage(.down) }
+                )
                 .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
                 .offset(y: calculateOffset(offscreenDistance: offscreenDistance))
                 .rotationEffect(calculateRotation())
                 .scaleEffect(calculateScale())
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            if exitDirection == nil {
-                                isDragging = true
-                                dragOffset = value.translation
-                            }
-                        }
-                        .onEnded { value in
-                            isDragging = false
-                            handleDragEnd(value: value)
-                        }
-                )
+                .gesture(createDragGesture())
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: dragOffset)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: exitDirection)
+                
+                // Swipe indicator overlay
+                SwipeIndicatorView(
+                    dragOffset: dragOffset,
+                    isDragging: isDragging
+                )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
@@ -191,6 +80,14 @@ struct SwipeCardView: View {
                 }
             }
         }
+    }
+    
+    private func calculateCardWidth(geometry: GeometryProxy) -> CGFloat {
+        let availableHeight = geometry.size.height
+        let availableWidth = geometry.size.width
+        let heightBasedWidth = availableHeight / 2
+        let widthBasedWidth = availableWidth
+        return min(heightBasedWidth, widthBasedWidth, 400)
     }
     
     private func calculateOffset(offscreenDistance: CGFloat) -> CGFloat {
@@ -215,6 +112,20 @@ struct SwipeCardView: View {
             return 0.995
         }
         return 1.0
+    }
+    
+    private func createDragGesture() -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if exitDirection == nil {
+                    isDragging = true
+                    dragOffset = value.translation
+                }
+            }
+            .onEnded { value in
+                isDragging = false
+                handleDragEnd(value: value)
+            }
     }
     
     private func handleDragEnd(value: DragGesture.Value) {
