@@ -12,12 +12,11 @@ struct ProfileView: View {
     @StateObject private var userService = UserService.shared
     
     var body: some View {
-        NavigationView {
-            VStack {
-                if authService.isAuthenticated, let user = authService.currentUser {
-                    // Authenticated User View
-                    
-                    VStack(spacing: 30) {
+        VStack {
+            if authService.isAuthenticated, let user = authService.currentUser {
+                // Authenticated User View
+                
+                VStack(spacing: 30) {
                         // Email
                         Text(user.email ?? "No email")
                             .font(.body)
@@ -63,15 +62,13 @@ struct ProfileView: View {
                     .task {
                         await userService.fetchUserData()
                     }
-                } else {
-                    // Not Authenticated View
-                    SignInPromptView(message: "Sign in to access your profile")
-                }
+            } else {
+                // Not Authenticated View
+                SignInPromptView(message: "Sign in to access your profile")
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(UIColor.systemGray6))
-            .navigationBarHidden(true)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(UIColor.systemGray6))
     }
 }
 

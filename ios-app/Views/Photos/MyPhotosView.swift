@@ -17,8 +17,7 @@ struct MyPhotosView: View {
     }
     
     var body: some View {
-        NavigationView {
-            if viewModel.isAuthenticated {
+        if viewModel.isAuthenticated {
                 VStack(spacing: 0) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
@@ -105,11 +104,9 @@ struct MyPhotosView: View {
                     Task {
                         await viewModel.loadPhotos()
                     }
-                }
-            } else {
-                SignInPromptView(message: "Sign in to view your photos", onAuthenticationSuccess: onAuthenticationSuccess)
-                    .navigationBarHidden(true)
             }
+        } else {
+            SignInPromptView(message: "Sign in to view your photos", onAuthenticationSuccess: onAuthenticationSuccess)
         }
     }
 }
