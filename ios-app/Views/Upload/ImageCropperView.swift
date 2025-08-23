@@ -331,19 +331,48 @@ extension ImageCropperUIView: UIScrollViewDelegate {
     }
     
     private func updateScrollViewInsets() {
-        // Calculate insets to allow the image to be scrolled so any part can be in the crop area
+        // We need insets that allow any part of the image to be positioned within the crop frame
+        // BUT also prevent the crop frame from showing empty space (no image)
+        
         let imageWidth = imageView.frame.width
         let imageHeight = imageView.frame.height
+        let cropWidth = cropFrame.width
+        let cropHeight = cropFrame.height
         
-        // We need enough inset so the image edges can reach the crop frame edges
-        // Top inset: allows bottom of image to reach bottom of crop frame
-        let topInset = max(0, cropFrame.maxY - imageHeight)
-        // Bottom inset: allows top of image to reach top of crop frame  
-        let bottomInset = max(0, bounds.height - cropFrame.minY)
-        // Left inset: allows right edge of image to reach right edge of crop frame
-        let leftInset = max(0, cropFrame.maxX - imageWidth)
-        // Right inset: allows left edge of image to reach left edge of crop frame
-        let rightInset = max(0, bounds.width - cropFrame.minX)
+        // Calculate how much we need to be able to scroll in each direction
+        // These values can be negative if the image is smaller than the crop area
+        let horizontalScrollNeeded = imageWidth - cropWidth
+        let verticalScrollNeeded = imageHeight - cropHeight
+        
+        // If image is larger than crop area, we need insets to see all of it
+        // If image is smaller than crop area, we need negative space to center it
+        
+        var topInset: CGFloat = 0
+        var bottomInset: CGFloat = 0
+        var leftInset: CGFloat = 0
+        var rightInset: CGFloat = 0
+        
+        if imageHeight > cropHeight {
+            // Image is taller than crop - need to be able to scroll to see top and bottom
+            topInset = cropFrame.minY
+            bottomInset = bounds.height - cropFrame.maxY
+        } else {
+            // Image is shorter than crop - center it vertically in the crop area
+            let verticalPadding = (cropHeight - imageHeight) / 2
+            topInset = cropFrame.minY + verticalPadding
+            bottomInset = bounds.height - cropFrame.maxY + verticalPadding
+        }
+        
+        if imageWidth > cropWidth {
+            // Image is wider than crop - need to be able to scroll to see left and right
+            leftInset = cropFrame.minX
+            rightInset = bounds.width - cropFrame.maxX
+        } else {
+            // Image is narrower than crop - center it horizontally in the crop area
+            let horizontalPadding = (cropWidth - imageWidth) / 2
+            leftInset = cropFrame.minX + horizontalPadding
+            rightInset = bounds.width - cropFrame.maxX + horizontalPadding
+        }
         
         scrollView.contentInset = UIEdgeInsets(
             top: topInset,
@@ -351,6 +380,9 @@ extension ImageCropperUIView: UIScrollViewDelegate {
             bottom: bottomInset,
             right: rightInset
         )
+        
+        // Also set scroll indicator insets to match
+        scrollView.scrollIndicatorInsets = scrollView.contentInset
     }
 }
 
