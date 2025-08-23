@@ -115,9 +115,22 @@ class UploadService: ObservableObject {
             }
         }
         
-        // Compress image
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+        // Compress the cropped 400x400 image
+        // Use higher quality since image is already small
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else {
             throw UploadError.imageCompressionFailed
+        }
+        
+        // Check final size and adjust if needed (max 0.5MB like website)
+        let finalImageData: Data
+        if imageData.count > 500_000 { // 0.5MB limit
+            // Reduce quality if too large
+            guard let compressedData = image.jpegData(compressionQuality: 0.7) else {
+                throw UploadError.imageCompressionFailed
+            }
+            finalImageData = compressedData
+        } else {
+            finalImageData = imageData
         }
         
         await MainActor.run {
@@ -132,7 +145,7 @@ class UploadService: ObservableObject {
         }
         
         // Upload to Firebase
-        try await uploadToFirebase(imageData: imageData, uploadUrl: uploadResponse.uploadUrl)
+        try await uploadToFirebase(imageData: finalImageData, uploadUrl: uploadResponse.uploadUrl)
         
         await MainActor.run {
             self.uploadStatus = "Finalizing upload..."

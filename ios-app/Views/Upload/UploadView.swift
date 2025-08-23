@@ -11,8 +11,10 @@ import PhotosUI
 struct UploadView: View {
     @StateObject private var uploadService = UploadService.shared
     @State private var selectedItem: PhotosPickerItem?
+    @State private var selectedImage: UIImage?
     @State private var showingImagePicker = false
     @State private var showingCamera = false
+    @State private var showingCropper = false
     @State private var showingActionSheet = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -68,11 +70,27 @@ struct UploadView: View {
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraView { image in
                     showingCamera = false
-                    Task {
-                        await uploadPhoto(image)
-                    }
+                    selectedImage = image
+                    showingCropper = true
                 } onCancel: {
                     showingCamera = false
+                }
+            }
+            .fullScreenCover(isPresented: $showingCropper) {
+                if let image = selectedImage {
+                    ImageCropperViewController(
+                        image: image,
+                        onComplete: { croppedImage in
+                            showingCropper = false
+                            Task {
+                                await uploadPhoto(croppedImage)
+                            }
+                        },
+                        onCancel: {
+                            showingCropper = false
+                            selectedImage = nil
+                        }
+                    )
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -168,9 +186,9 @@ struct UploadView: View {
                     await MainActor.run {
                         self.isLoadingImage = false
                         self.selectedItem = nil
+                        self.selectedImage = image
+                        self.showingCropper = true
                     }
-                    // Upload the image directly
-                    await uploadPhoto(image)
                 } else {
                     throw NSError(domain: "UploadView", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid image data"])
                 }

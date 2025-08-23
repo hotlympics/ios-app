@@ -78,9 +78,18 @@ After making changes, build the project and fix any warnings or errors. Test on 
 - **UploadView**: Photo upload interface with library/camera selection
   - PhotosPicker integration for gallery access
   - Camera capture support via UIImagePickerController
-  - Direct upload without cropping
+  - **Image cropping**: 400x400 square crop matching website implementation
   - Loading states during image processing
   - Upload progress display
+- **ImageCropperView**: Custom UIScrollView-based image cropper
+  - Square-only cropping (1:1 aspect ratio locked)
+  - Pinch-to-zoom and pan gestures for positioning
+  - Grid overlay for alignment assistance
+  - Outputs exactly 400x400 pixels like website
+- **ImageCropperViewController**: Crop confirmation interface
+  - Preview of crop area with Cancel/Done buttons
+  - Dark theme UI matching photo editing context
+  - Smooth animations and responsive gestures
 - **MyPhotosView**: User's uploaded photos management
   - Grid display of uploaded photos (2 columns)
   - Pool selection interface (max 2 photos)
@@ -98,7 +107,11 @@ After making changes, build the project and fix any warnings or errors. Test on 
 3. User rates pairs → RatingService submits to backend
 4. Queue advances → Buffer block becomes active, new buffer fetched
 5. Authentication state changes → Queue resets with appropriate gender filter
-6. Photo upload completes → Redirects to My Photos tab to show uploaded photo
+6. Photo upload flow:
+   - User selects/captures photo → Cropper opens
+   - User crops to 400x400 square → Image compressed
+   - Upload to Firebase Storage → Confirm with backend
+   - Redirects to My Photos tab to show uploaded photo
 
 ### API Integration
 - **Base URL**: Currently hardcoded to `http://localhost:3000` in service classes
