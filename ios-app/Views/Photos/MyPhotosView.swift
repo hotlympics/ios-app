@@ -10,6 +10,11 @@ import SwiftUI
 struct MyPhotosView: View {
     @StateObject private var viewModel = MyPhotosViewModel()
     @StateObject private var authService = FirebaseAuthService.shared
+    let onAuthenticationSuccess: (() -> Void)?
+    
+    init(onAuthenticationSuccess: (() -> Void)? = nil) {
+        self.onAuthenticationSuccess = onAuthenticationSuccess
+    }
     
     var body: some View {
         NavigationView {
@@ -102,7 +107,7 @@ struct MyPhotosView: View {
                     }
                 }
             } else {
-                SignInPromptView(message: "Sign in to view your photos")
+                SignInPromptView(message: "Sign in to view your photos", onAuthenticationSuccess: onAuthenticationSuccess)
                     .navigationBarHidden(true)
             }
         }

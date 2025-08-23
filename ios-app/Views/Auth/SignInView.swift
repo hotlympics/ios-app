@@ -11,6 +11,11 @@ struct SignInView: View {
     @StateObject private var authService = FirebaseAuthService.shared
     @Environment(\.dismiss) var dismiss
     @State private var showingError = false
+    let onAuthenticationSuccess: (() -> Void)?
+    
+    init(onAuthenticationSuccess: (() -> Void)? = nil) {
+        self.onAuthenticationSuccess = onAuthenticationSuccess
+    }
     
     var body: some View {
         NavigationView {
@@ -97,6 +102,7 @@ struct SignInView: View {
             }
             .onChange(of: authService.isAuthenticated) { isAuthenticated in
                 if isAuthenticated {
+                    onAuthenticationSuccess?()
                     dismiss()
                 }
             }

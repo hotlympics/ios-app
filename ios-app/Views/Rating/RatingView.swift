@@ -65,7 +65,7 @@ struct RatingView: View {
         .task {
             await loadImages()
         }
-        .onChange(of: authService.user) { _ in
+        .onChange(of: authService.currentUser?.id ?? "") { _ in
             // When user changes (login/logout), clear current pair and reload
             currentPair = []
             nextPair = nil

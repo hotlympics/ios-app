@@ -14,12 +14,12 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             VStack {
-                if authService.isAuthenticated, let user = authService.user {
+                if authService.isAuthenticated, let user = authService.currentUser {
                     // Authenticated User View
                     
                     VStack(spacing: 30) {
                         // Email
-                        Text(user.email)
+                        Text(user.email ?? "No email")
                             .font(.body)
                             .foregroundColor(.primary)
                         

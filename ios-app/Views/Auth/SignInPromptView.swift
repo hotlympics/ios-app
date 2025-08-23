@@ -10,9 +10,11 @@ import SwiftUI
 struct SignInPromptView: View {
     @State private var showingSignIn = false
     let message: String
+    let onAuthenticationSuccess: (() -> Void)?
     
-    init(message: String = "Sign in to upload photos") {
+    init(message: String = "Sign in to upload photos", onAuthenticationSuccess: (() -> Void)? = nil) {
         self.message = message
+        self.onAuthenticationSuccess = onAuthenticationSuccess
     }
     
     var body: some View {
@@ -42,7 +44,7 @@ struct SignInPromptView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(UIColor.systemGray6))
         .sheet(isPresented: $showingSignIn) {
-            SignInView()
+            SignInView(onAuthenticationSuccess: onAuthenticationSuccess)
         }
     }
 }

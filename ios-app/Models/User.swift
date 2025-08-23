@@ -11,34 +11,62 @@ struct User: Codable, Identifiable {
     let id: String
     let email: String?
     let displayName: String?
-    let photoURL: String?
-    let createdAt: Date?
-    let lastLoginAt: Date?
+    let photoUrl: String?
+    let firebaseUid: String?
+    let googleId: String?
     
     // Profile information
     let gender: String?
     let dateOfBirth: String?
-    let uploadedPhotos: [String]
-    let poolPhotos: [String]
+    let uploadedImageIds: [String]?
+    let poolImageIds: [String]?
     
-    // Statistics
-    let totalBattles: Int
-    let totalWins: Int
-    let totalLosses: Int
+    // Terms of Service
+    let tosVersion: String?
+    let tosAcceptedAt: String?
+    
+    // Statistics (optional - not always returned by server)
+    let rateCount: Int?
+    
+    // Profile completion checks
+    var hasValidGender: Bool {
+        guard let gender = gender else { return false }
+        return gender == "male" || gender == "female"
+    }
+    
+    var hasDateOfBirth: Bool {
+        return dateOfBirth != nil && !dateOfBirth!.isEmpty
+    }
+    
+    var hasAcceptedCurrentToS: Bool {
+        return tosVersion == Constants.currentToSVersion
+    }
+    
+    var isProfileComplete: Bool {
+        return hasValidGender && hasDateOfBirth && hasAcceptedCurrentToS
+    }
+    
+    var needsGenderAndDOB: Bool {
+        return !hasValidGender || !hasDateOfBirth
+    }
+    
+    var needsToSAcceptance: Bool {
+        return !hasAcceptedCurrentToS
+    }
     
     enum CodingKeys: String, CodingKey {
         case id
         case email
         case displayName
-        case photoURL
-        case createdAt
-        case lastLoginAt
+        case photoUrl
+        case firebaseUid
+        case googleId
         case gender
         case dateOfBirth
-        case uploadedPhotos
-        case poolPhotos
-        case totalBattles
-        case totalWins
-        case totalLosses
+        case uploadedImageIds
+        case poolImageIds
+        case tosVersion
+        case tosAcceptedAt
+        case rateCount
     }
 }

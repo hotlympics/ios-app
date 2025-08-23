@@ -8,6 +8,9 @@
 import Foundation
 
 struct Constants {
+    // Current Terms of Service version - must match backend
+    static let currentToSVersion = "1.0"
+    
     struct API {
         static let baseURL = "http://localhost:3000"
         static let timeout: TimeInterval = 30
@@ -22,6 +25,8 @@ struct Constants {
             static let userImages = "/images/user"
             static let user = "/user"
             static let userPool = "/user/pool"
+            static let userProfile = "/user/profile"
+            static let acceptToS = "/user/accept-tos"
         }
     }
     

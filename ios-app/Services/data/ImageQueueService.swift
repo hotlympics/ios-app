@@ -55,7 +55,7 @@ class ImageQueueService: ObservableObject {
     
     private func getViewingGender() async -> String {
         // Get current user from FirebaseAuthService
-        if let user = FirebaseAuthService.shared.user {
+        if let user = FirebaseAuthService.shared.currentUser {
             // Show opposite gender to user's gender
             if user.gender == "male" {
                 return "female"

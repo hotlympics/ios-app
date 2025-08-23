@@ -24,28 +24,12 @@ import GoogleSignIn
 class FirebaseAuthService: ObservableObject {
     static let shared = FirebaseAuthService()
     
-    @Published var user: User?
+    @Published var currentUser: User?
     @Published var isAuthenticated: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
-    private let baseURL = "http://localhost:3000"
-    
-    struct User: Codable, Equatable {
-        let id: String
-        let firebaseUid: String
-        let email: String
-        let googleId: String?
-        let gender: String
-        let dateOfBirth: String?
-        let tosVersion: String?
-        let tosAcceptedAt: String?
-        let rateCount: Int
-        let uploadedImageIds: [String]
-        let poolImageIds: [String]
-        let displayName: String?
-        let photoUrl: String?
-    }
+    private let baseURL = Constants.API.baseURL
     
     private init() {
         setupAuthStateListener()
@@ -62,7 +46,7 @@ class FirebaseAuthService: ObservableObject {
                 }
             } else {
                 DispatchQueue.main.async {
-                    self?.user = nil
+                    self?.currentUser = nil
                     self?.isAuthenticated = false
                     self?.clearStoredCredentials()
                 }
@@ -189,7 +173,7 @@ class FirebaseAuthService: ObservableObject {
             let syncResponse = try decoder.decode(SyncResponse.self, from: data)
             
             DispatchQueue.main.async {
-                self.user = syncResponse.user
+                self.currentUser = syncResponse.user
                 self.isAuthenticated = true
                 self.isLoading = false
                 self.saveUser(syncResponse.user)
@@ -216,7 +200,7 @@ class FirebaseAuthService: ObservableObject {
         do {
             try Auth.auth().signOut()
             GIDSignIn.sharedInstance.signOut()
-            user = nil
+            currentUser = nil
             isAuthenticated = false
             clearStoredCredentials()
             // Clear user data cache
@@ -257,7 +241,7 @@ class FirebaseAuthService: ObservableObject {
         if let userData = UserDefaults.standard.data(forKey: "user_data"),
            let user = try? JSONDecoder().decode(User.self, from: userData),
            let _ = UserDefaults.standard.string(forKey: "auth_token") {
-            self.user = user
+            self.currentUser = user
             self.isAuthenticated = true
         }
     }
@@ -288,6 +272,105 @@ class FirebaseAuthService: ObservableObject {
             return "Network error. Please check your connection"
         default:
             return "An error occurred. Please try again"
+        }
+    }
+    
+    // MARK: - Profile Management
+    
+    func fetchUserProfile() async -> User? {
+        guard let token = await getIdToken() else { return nil }
+        
+        guard let url = URL(string: "\(baseURL)\(Constants.API.Endpoints.user)") else { return nil }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(for: request)
+            let user = try JSONDecoder().decode(User.self, from: data)
+            return user
+        } catch {
+            print("Error fetching user profile: \(error)")
+            return nil
+        }
+    }
+    
+    func updateUserProfile(gender: String, dateOfBirth: String) async -> Bool {
+        guard let token = await getIdToken() else { return false }
+        
+        guard let url = URL(string: "\(baseURL)\(Constants.API.Endpoints.userProfile)") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = [
+            "gender": gender,
+            "dateOfBirth": dateOfBirth
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                // Update local user data
+                if let updatedUser = try? JSONDecoder().decode(User.self, from: data) {
+                    await MainActor.run {
+                        self.currentUser = updatedUser
+                        self.saveUser(updatedUser)
+                    }
+                }
+                return true
+            }
+            return false
+        } catch {
+            print("Error updating profile: \(error)")
+            return false
+        }
+    }
+    
+    func acceptTermsOfService() async -> Bool {
+        guard let token = await getIdToken() else { return false }
+        
+        guard let url = URL(string: "\(baseURL)\(Constants.API.Endpoints.acceptToS)") else { return false }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = [
+            "tosVersion": Constants.currentToSVersion
+        ]
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                // Update local user data
+                let responseObject = try JSONDecoder().decode(SyncResponse.self, from: data)
+                await MainActor.run {
+                    self.currentUser = responseObject.user
+                    self.saveUser(responseObject.user)
+                }
+                return true
+            }
+            return false
+        } catch {
+            print("Error accepting ToS: \(error)")
+            return false
+        }
+    }
+    
+    func checkAuthState() {
+        // Force re-check of auth state and fetch fresh user data
+        if let firebaseUser = Auth.auth().currentUser {
+            Task {
+                await handleAuthStateChange(firebaseUser: firebaseUser)
+            }
         }
     }
     
