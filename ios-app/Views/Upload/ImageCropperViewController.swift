@@ -7,12 +7,23 @@
 
 import SwiftUI
 
+// MARK: - Cropper Wrapper to hold reference
+class CropperWrapper: ObservableObject {
+    weak var cropperView: ImageCropperUIView?
+    
+    func performCrop() -> UIImage? {
+        return cropperView?.performCrop()
+    }
+}
+
+// MARK: - Main Cropper View Controller
+
 struct ImageCropperViewController: View {
     let image: UIImage
     let onComplete: (UIImage) -> Void
     let onCancel: () -> Void
     
-    @State private var cropperViewWrapper: CropperViewWrapper?
+    @StateObject private var cropperWrapper = CropperWrapper()
     @State private var isProcessing = false
     @Environment(\.dismiss) private var dismiss
     
@@ -22,54 +33,31 @@ struct ImageCropperViewController: View {
                 Color.black.edgesIgnoringSafeArea(.all)
                 
                 VStack(spacing: 0) {
-                    // Cropper view
+                    // Main cropper view
                     ImageCropperViewBridge(
                         image: image,
-                        cropperWrapper: $cropperViewWrapper,
+                        cropperWrapper: cropperWrapper,
                         cropSize: CGSize(width: 400, height: 400)
                     )
-                    .edgesIgnoringSafeArea(.all)
+                    .edgesIgnoringSafeArea(.horizontal)
                     
-                    // Bottom instruction
-                    VStack(spacing: 8) {
-                        Text("Move and Scale")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("Pinch to zoom • Drag to position")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding(.vertical, 20)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.black.opacity(0.8))
+                    // Instructions
+                    instructionsView
                 }
                 
+                // Processing overlay
                 if isProcessing {
-                    Color.black.opacity(0.5)
-                        .edgesIgnoringSafeArea(.all)
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
+                    processingOverlay
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        onCancel()
-                        dismiss()
-                    }
-                    .foregroundColor(.white)
-                    .disabled(isProcessing)
+                    cancelButton
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        cropAndComplete()
-                    }
-                    .foregroundColor(.white)
-                    .fontWeight(.semibold)
-                    .disabled(isProcessing)
+                    doneButton
                 }
             }
             .toolbarBackground(.visible, for: .navigationBar)
@@ -78,58 +66,91 @@ struct ImageCropperViewController: View {
         }
     }
     
-    private func cropAndComplete() {
+    // MARK: - View Components
+    
+    private var instructionsView: some View {
+        VStack(spacing: 8) {
+            Text("Move and Scale")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text("Pinch to zoom • Drag to position • Double tap to reset")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.7))
+        }
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity)
+        .background(Color.black.opacity(0.8))
+    }
+    
+    private var processingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.5)
+                .edgesIgnoringSafeArea(.all)
+            
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.5)
+        }
+    }
+    
+    private var cancelButton: some View {
+        Button("Cancel") {
+            onCancel()
+            dismiss()
+        }
+        .foregroundColor(.white)
+        .disabled(isProcessing)
+    }
+    
+    private var doneButton: some View {
+        Button("Done") {
+            performCrop()
+        }
+        .foregroundColor(.white)
+        .fontWeight(.semibold)
+        .disabled(isProcessing)
+    }
+    
+    // MARK: - Actions
+    
+    private func performCrop() {
         isProcessing = true
         
-        // Get the cropped image directly from the cropper view
-        if let croppedImage = cropperViewWrapper?.cropImage() {
-            print("✅ Successfully cropped image: \(croppedImage.size)")
+        // Directly call crop on the wrapper
+        if let croppedImage = cropperWrapper.performCrop() {
             onComplete(croppedImage)
             dismiss()
         } else {
-            print("❌ Failed to crop image - cropperViewWrapper: \(String(describing: cropperViewWrapper))")
             isProcessing = false
-            // Show error - cropping failed
         }
     }
 }
 
-// Wrapper class to hold reference to the UIKit cropper view
-class CropperViewWrapper {
-    weak var cropperView: CropperUIView?
-    
-    func cropImage() -> UIImage? {
-        return cropperView?.cropImage()
-    }
-}
-
-// Bridge view to connect SwiftUI with UIKit cropper
+// MARK: - Bridge to connect wrapper with UIKit view
 struct ImageCropperViewBridge: UIViewRepresentable {
     let image: UIImage
-    @Binding var cropperWrapper: CropperViewWrapper?
+    let cropperWrapper: CropperWrapper
     let cropSize: CGSize
     
-    func makeUIView(context: Context) -> CropperUIView {
-        let cropperView = CropperUIView()
-        cropperView.image = image
-        cropperView.cropSize = cropSize
+    func makeUIView(context: Context) -> ImageCropperUIView {
+        let cropperView = ImageCropperUIView()
+        cropperWrapper.cropperView = cropperView
         
-        // Create wrapper and store reference
-        let wrapper = CropperViewWrapper()
-        wrapper.cropperView = cropperView
+        // Delay configuration to ensure view is in hierarchy
         DispatchQueue.main.async {
-            self.cropperWrapper = wrapper
+            cropperView.configure(with: image, cropSize: cropSize)
         }
-        
         return cropperView
     }
     
-    func updateUIView(_ uiView: CropperUIView, context: Context) {
+    func updateUIView(_ uiView: ImageCropperUIView, context: Context) {
         // No updates needed
     }
 }
 
-// Helper view to integrate the cropper
+// MARK: - Helper View for Sheet Presentation
+
 struct ImageCropperHost: View {
     @Binding var isPresented: Bool
     let image: UIImage
@@ -148,82 +169,5 @@ struct ImageCropperHost: View {
                 }
             )
         }
-    }
-}
-
-// Extension to properly handle cropping
-extension ImageCropperViewController {
-    struct CropperRepresentable: UIViewControllerRepresentable {
-        let image: UIImage
-        let onComplete: (UIImage) -> Void
-        let onCancel: () -> Void
-        
-        func makeUIViewController(context: Context) -> CropperHostController {
-            let controller = CropperHostController()
-            controller.image = image
-            controller.onComplete = onComplete
-            controller.onCancel = onCancel
-            return controller
-        }
-        
-        func updateUIViewController(_ uiViewController: CropperHostController, context: Context) {
-            // No updates needed
-        }
-    }
-}
-
-// UIKit host controller for the cropper
-class CropperHostController: UIViewController {
-    var image: UIImage?
-    var onComplete: ((UIImage) -> Void)?
-    var onCancel: (() -> Void)?
-    
-    private var cropperView: CropperUIView!
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        view.backgroundColor = .black
-        
-        // Setup navigation
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .cancel,
-            target: self,
-            action: #selector(cancelTapped)
-        )
-        
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Done",
-            style: .done,
-            target: self,
-            action: #selector(doneTapped)
-        )
-        
-        // Setup cropper
-        cropperView = CropperUIView()
-        cropperView.image = image
-        cropperView.cropSize = CGSize(width: 400, height: 400)
-        cropperView.translatesAutoresizingMaskIntoConstraints = false
-        
-        view.addSubview(cropperView)
-        
-        NSLayoutConstraint.activate([
-            cropperView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            cropperView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            cropperView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            cropperView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
-        ])
-    }
-    
-    @objc private func cancelTapped() {
-        onCancel?()
-        dismiss(animated: true)
-    }
-    
-    @objc private func doneTapped() {
-        if let croppedImage = cropperView.cropImage() {
-            onComplete?(croppedImage)
-        }
-        dismiss(animated: true)
     }
 }

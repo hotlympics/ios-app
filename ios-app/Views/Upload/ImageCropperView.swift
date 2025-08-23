@@ -8,282 +8,354 @@
 import SwiftUI
 import UIKit
 
+// MARK: - SwiftUI Bridge
+
 struct ImageCropperView: UIViewRepresentable {
     let image: UIImage
     @Binding var croppedImage: UIImage?
     let cropSize: CGSize
     
-    func makeUIView(context: Context) -> CropperUIView {
-        let cropperView = CropperUIView()
-        cropperView.image = image
-        cropperView.cropSize = cropSize
-        cropperView.delegate = context.coordinator
+    func makeUIView(context: Context) -> ImageCropperUIView {
+        let cropperView = ImageCropperUIView()
+        // Delay configuration to ensure view is in hierarchy
+        DispatchQueue.main.async {
+            cropperView.configure(with: image, cropSize: cropSize)
+        }
         return cropperView
     }
     
-    func updateUIView(_ uiView: CropperUIView, context: Context) {
-        // Trigger crop when needed
+    func updateUIView(_ uiView: ImageCropperUIView, context: Context) {
+        // When croppedImage is requested (nil -> needs value)
         if croppedImage == nil {
-            croppedImage = uiView.cropImage()
-        }
-    }
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, CropperUIViewDelegate {
-        let parent: ImageCropperView
-        
-        init(_ parent: ImageCropperView) {
-            self.parent = parent
-        }
-        
-        func cropperDidCrop(_ image: UIImage) {
-            parent.croppedImage = image
+            croppedImage = uiView.performCrop()
         }
     }
 }
 
-protocol CropperUIViewDelegate: AnyObject {
-    func cropperDidCrop(_ image: UIImage)
-}
+// MARK: - Main Cropper View
 
-class CropperUIView: UIView {
-    weak var delegate: CropperUIViewDelegate?
+class ImageCropperUIView: UIView {
     
-    var image: UIImage? {
-        didSet {
-            imageView.image = image
-            setupImageView()
-        }
-    }
-    
-    var cropSize: CGSize = CGSize(width: 400, height: 400)
+    // MARK: - Properties
     
     private let scrollView = UIScrollView()
     private let imageView = UIImageView()
     private let overlayView = CropOverlayView()
     
-    private var cropRect: CGRect {
-        let size = min(bounds.width, bounds.height) * 0.8
-        let x = (bounds.width - size) / 2
-        let y = (bounds.height - size) / 2
-        return CGRect(x: x, y: y, width: size, height: size)
+    private var image: UIImage?
+    private var cropSize: CGSize = CGSize(width: 400, height: 400)
+    private var isInitialSetupComplete = false
+    
+    // The actual crop frame in view coordinates
+    private var cropFrame: CGRect {
+        let dimension = min(bounds.width, bounds.height) * 0.8
+        let x = (bounds.width - dimension) / 2
+        let y = (bounds.height - dimension) / 2
+        return CGRect(x: x, y: y, width: dimension, height: dimension)
     }
+    
+    // MARK: - Initialization
     
     override init(frame: CGRect) {
         super.init(frame: frame)
-        setupViews()
+        setupView()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupViews()
+        setupView()
     }
     
-    private func setupViews() {
+    // MARK: - Setup
+    
+    private func setupView() {
         backgroundColor = .black
         
-        // Setup scroll view
+        setupScrollView()
+        setupImageView()
+        setupOverlay()
+        setupGestures()
+    }
+    
+    private func setupScrollView() {
         scrollView.delegate = self
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         scrollView.decelerationRate = .fast
         scrollView.contentInsetAdjustmentBehavior = .never
-        scrollView.clipsToBounds = false
+        scrollView.clipsToBounds = true // Important: prevent dragging outside bounds
+        scrollView.bounces = true
+        scrollView.bouncesZoom = true
         addSubview(scrollView)
-        
-        // Setup image view
+    }
+    
+    private func setupImageView() {
         imageView.contentMode = .scaleAspectFit
         scrollView.addSubview(imageView)
-        
-        // Setup overlay
+    }
+    
+    private func setupOverlay() {
         overlayView.isUserInteractionEnabled = false
         addSubview(overlayView)
-        
-        // Setup double tap gesture
+    }
+    
+    private func setupGestures() {
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
         doubleTap.numberOfTapsRequired = 2
         scrollView.addGestureRecognizer(doubleTap)
     }
     
-    override func layoutSubviews() {
-        super.layoutSubviews()
+    // MARK: - Configuration
+    
+    func configure(with image: UIImage, cropSize: CGSize) {
+        self.image = image
+        self.cropSize = cropSize
+        self.imageView.image = image
         
-        scrollView.frame = bounds
-        overlayView.frame = bounds
-        overlayView.cropRect = cropRect
+        // Reset the initial setup flag when configuring with new image
+        isInitialSetupComplete = false
         
-        if imageView.image != nil {
-            updateScrollViewSettings()
+        // Force immediate layout if we have valid bounds
+        if bounds.width > 0 && bounds.height > 0 {
+            layoutIfNeeded()
+            
+            // If layout didn't trigger configuration, do it now
+            if !isInitialSetupComplete && cropFrame.width > 0 {
+                configureScrollViewForImage(image)
+                isInitialSetupComplete = true
+            }
         }
     }
     
-    private func setupImageView() {
-        guard let image = image else { return }
+    // MARK: - Layout
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
         
+        // Don't configure if bounds are zero
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        
+        // Scroll view fills the entire view so we can see the whole image
+        scrollView.frame = bounds
+        
+        // Update overlay
+        overlayView.frame = bounds
+        overlayView.cropRect = cropFrame
+        
+        // Configure scroll view for image only on initial setup
+        if let image = image, !isInitialSetupComplete, cropFrame.width > 0 {
+            configureScrollViewForImage(image)
+            isInitialSetupComplete = true
+        }
+    }
+    
+    private func configureScrollViewForImage(_ image: UIImage) {
+        // Set image view size to match image
         imageView.frame = CGRect(origin: .zero, size: image.size)
         scrollView.contentSize = image.size
         
-        updateScrollViewSettings()
-        centerImageView()
-    }
-    
-    private func updateScrollViewSettings() {
-        guard let image = image else { return }
+        // Calculate minimum zoom to fill crop area
+        let widthScale = cropFrame.width / image.size.width
+        let heightScale = cropFrame.height / image.size.height
+        let minScale = max(widthScale, heightScale)
         
-        let cropSize = cropRect.size
-        
-        // Calculate zoom scales
-        let scaleWidth = cropSize.width / image.size.width
-        let scaleHeight = cropSize.height / image.size.height
-        let minScale = max(scaleWidth, scaleHeight)
-        
+        // Set zoom scales
         scrollView.minimumZoomScale = minScale
-        scrollView.maximumZoomScale = minScale * 4
-        scrollView.zoomScale = minScale * 1.2 // Start slightly zoomed in
+        scrollView.maximumZoomScale = max(minScale * 3, 1.0)
         
-        updateContentInset()
+        // Set initial zoom (slightly zoomed in for better cropping)
+        scrollView.zoomScale = minScale * 1.1
+        
+        // Center the image content on the crop area
+        centerImageOnCropArea()
+        
+        print("📸 Configured image: size=\(image.size), minScale=\(minScale), zoom=\(scrollView.zoomScale)")
     }
     
-    private func updateContentInset() {
-        let cropSize = cropRect.size
-        let contentSize = scrollView.contentSize
+    private func centerImageOnCropArea() {
+        // Update content insets to allow scrolling even when image is smaller than scroll view
+        updateScrollViewInsets()
         
-        let horizontalInset = max(0, (scrollView.bounds.width - contentSize.width) / 2)
-        let verticalInset = max(0, (scrollView.bounds.height - contentSize.height) / 2)
+        // Get the actual scaled content size after zoom
+        let scaledWidth = imageView.frame.width
+        let scaledHeight = imageView.frame.height
         
-        // Additional insets to keep image centered in crop area
-        let cropHorizontalInset = (bounds.width - cropSize.width) / 2
-        let cropVerticalInset = (bounds.height - cropSize.height) / 2
+        // Calculate the offset to center the image in the crop area
+        // We want the center of the image to align with the center of the crop frame
+        let cropCenterX = cropFrame.midX
+        let cropCenterY = cropFrame.midY
         
-        scrollView.contentInset = UIEdgeInsets(
-            top: verticalInset + cropVerticalInset,
-            left: horizontalInset + cropHorizontalInset,
-            bottom: verticalInset + cropVerticalInset,
-            right: horizontalInset + cropHorizontalInset
-        )
+        // Calculate ideal offset (can be negative due to insets)
+        let idealOffsetX = (scaledWidth / 2) - cropCenterX
+        let idealOffsetY = (scaledHeight / 2) - cropCenterY
+        
+        // Set the content offset - the insets will handle the bounds
+        scrollView.contentOffset = CGPoint(x: idealOffsetX, y: idealOffsetY)
     }
     
-    private func centerImageView() {
-        let offsetX = max((scrollView.bounds.width - scrollView.contentSize.width) / 2, 0)
-        let offsetY = max((scrollView.bounds.height - scrollView.contentSize.height) / 2, 0)
-        imageView.center = CGPoint(
-            x: scrollView.contentSize.width / 2 + offsetX,
-            y: scrollView.contentSize.height / 2 + offsetY
-        )
-    }
+    // MARK: - Gesture Handling
     
     @objc private func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
         if scrollView.zoomScale > scrollView.minimumZoomScale {
             scrollView.setZoomScale(scrollView.minimumZoomScale, animated: true)
         } else {
             let location = gesture.location(in: imageView)
-            let rect = CGRect(x: location.x, y: location.y, width: 1, height: 1)
-            scrollView.zoom(to: rect, animated: true)
+            let zoomRect = zoomRectForScale(scrollView.maximumZoomScale, center: location)
+            scrollView.zoom(to: zoomRect, animated: true)
         }
     }
     
-    func cropImage() -> UIImage? {
-        guard let image = image else { 
-            print("❌ No image to crop")
-            return nil 
-        }
-        
-        print("📸 Starting crop - Image size: \(image.size), Crop rect: \(cropRect)")
-        print("📸 ScrollView contentOffset: \(scrollView.contentOffset), zoom: \(scrollView.zoomScale)")
-        print("📸 ScrollView contentInset: \(scrollView.contentInset)")
-        
-        // Convert the crop rect from view coordinates to scroll view coordinates
-        let cropRectInScrollView = scrollView.convert(cropRect, from: self)
-        
-        // Calculate the visible content area
-        // The crop rect shows a portion of the scroll view's content
-        let visibleContentRect = CGRect(
-            x: scrollView.contentOffset.x + cropRectInScrollView.origin.x,
-            y: scrollView.contentOffset.y + cropRectInScrollView.origin.y,
-            width: cropRectInScrollView.width,
-            height: cropRectInScrollView.height
+    private func zoomRectForScale(_ scale: CGFloat, center: CGPoint) -> CGRect {
+        let size = CGSize(
+            width: scrollView.bounds.width / scale,
+            height: scrollView.bounds.height / scale
         )
         
-        print("📸 Crop rect in scroll view: \(cropRectInScrollView)")
-        print("📸 Visible content rect: \(visibleContentRect)")
-        
-        // The imageView.frame tells us where the image is positioned in the scroll view's content
-        // Convert the visible rect to image coordinates
-        let imageViewFrame = imageView.frame
-        let imageX = (visibleContentRect.origin.x - imageViewFrame.origin.x) / imageViewFrame.width * image.size.width
-        let imageY = (visibleContentRect.origin.y - imageViewFrame.origin.y) / imageViewFrame.height * image.size.height
-        let imageWidth = visibleContentRect.width / imageViewFrame.width * image.size.width
-        let imageHeight = visibleContentRect.height / imageViewFrame.height * image.size.height
-        
-        let sourceRect = CGRect(x: imageX, y: imageY, width: imageWidth, height: imageHeight)
-        
-        print("📸 Source rect in image: \(sourceRect)")
-        
-        // Clamp to image bounds
-        let clampedRect = CGRect(
-            x: max(0, min(sourceRect.origin.x, image.size.width)),
-            y: max(0, min(sourceRect.origin.y, image.size.height)),
-            width: min(sourceRect.width, image.size.width - max(0, sourceRect.origin.x)),
-            height: min(sourceRect.height, image.size.height - max(0, sourceRect.origin.y))
+        let origin = CGPoint(
+            x: center.x - size.width / 2,
+            y: center.y - size.height / 2
         )
         
-        print("📸 Clamped rect: \(clampedRect)")
+        return CGRect(origin: origin, size: size)
+    }
+    
+    // MARK: - Cropping
+    
+    func performCrop() -> UIImage? {
+        guard let image = image else { return nil }
         
-        // Crop using Core Graphics for accuracy
+        // Account for content insets when calculating visible rect
+        let contentInset = scrollView.contentInset
+        let contentOffset = scrollView.contentOffset
+        let zoomScale = scrollView.zoomScale
+        
+        // The actual content offset adjusted for insets
+        let adjustedOffsetX = contentOffset.x + contentInset.left
+        let adjustedOffsetY = contentOffset.y + contentInset.top
+        
+        // Calculate what part of the image is visible in the crop frame
+        // The crop frame position relative to the image origin
+        let cropInImageX = adjustedOffsetX + cropFrame.origin.x
+        let cropInImageY = adjustedOffsetY + cropFrame.origin.y
+        
+        // Convert to original image coordinates
+        let cropRect = CGRect(
+            x: cropInImageX / zoomScale,
+            y: cropInImageY / zoomScale,
+            width: cropFrame.width / zoomScale,
+            height: cropFrame.height / zoomScale
+        )
+        
+        print("📸 Crop Debug:")
+        print("  - Content offset: \(contentOffset)")
+        print("  - Content inset: \(contentInset)")
+        print("  - Adjusted offset: (\(adjustedOffsetX), \(adjustedOffsetY))")
+        print("  - Crop frame: \(cropFrame)")
+        print("  - Zoom scale: \(zoomScale)")
+        print("  - Final crop rect: \(cropRect)")
+        
+        // Perform the crop
+        return cropImage(image, toRect: cropRect, targetSize: cropSize)
+    }
+    
+    private func cropImage(_ image: UIImage, toRect rect: CGRect, targetSize: CGSize) -> UIImage? {
+        // Ensure we have a CGImage
         guard let cgImage = image.cgImage else { return nil }
         
-        // Convert to CGImage coordinates (might be different due to orientation)
-        let cgImageWidth = CGFloat(cgImage.width)
-        let cgImageHeight = CGFloat(cgImage.height)
+        // Handle image orientation
+        let imageSize: CGSize
+        let cropRect: CGRect
         
-        let cgCropRect = CGRect(
-            x: clampedRect.origin.x / image.size.width * cgImageWidth,
-            y: clampedRect.origin.y / image.size.height * cgImageHeight,
-            width: clampedRect.width / image.size.width * cgImageWidth,
-            height: clampedRect.height / image.size.height * cgImageHeight
+        switch image.imageOrientation {
+        case .left, .leftMirrored, .right, .rightMirrored:
+            // Image is rotated 90 degrees
+            imageSize = CGSize(width: image.size.height, height: image.size.width)
+            cropRect = CGRect(
+                x: rect.origin.y,
+                y: rect.origin.x,
+                width: rect.height,
+                height: rect.width
+            )
+        default:
+            imageSize = image.size
+            cropRect = rect
+        }
+        
+        // Scale crop rect to actual CGImage dimensions
+        let scaleX = CGFloat(cgImage.width) / imageSize.width
+        let scaleY = CGFloat(cgImage.height) / imageSize.height
+        
+        let scaledCropRect = CGRect(
+            x: cropRect.origin.x * scaleX,
+            y: cropRect.origin.y * scaleY,
+            width: cropRect.width * scaleX,
+            height: cropRect.height * scaleY
         )
         
-        guard let croppedCGImage = cgImage.cropping(to: cgCropRect) else { 
-            print("❌ Failed to crop CGImage")
-            return nil 
-        }
+        // Ensure the rect is within bounds
+        let boundedRect = scaledCropRect.intersection(
+            CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+        )
         
-        // Create UIImage from cropped CGImage
-        let croppedImage = UIImage(cgImage: croppedCGImage, scale: image.scale, orientation: image.imageOrientation)
+        // Crop the image
+        guard let croppedCGImage = cgImage.cropping(to: boundedRect) else { return nil }
         
-        // Resize to exactly 400x400
-        let renderer = UIGraphicsImageRenderer(size: cropSize)
-        let finalImage = renderer.image { _ in
-            croppedImage.draw(in: CGRect(origin: .zero, size: cropSize))
-        }
+        // Create UIImage preserving orientation
+        let croppedImage = UIImage(
+            cgImage: croppedCGImage,
+            scale: image.scale,
+            orientation: image.imageOrientation
+        )
         
-        print("✅ Final cropped image size: \(finalImage.size)")
-        return finalImage
+        // Resize to target size
+        return resizeImage(croppedImage, to: targetSize)
     }
     
-    private func resizeImage(_ image: UIImage, targetSize: CGSize) -> UIImage? {
+    private func resizeImage(_ image: UIImage, to targetSize: CGSize) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: targetSize)
-        return renderer.image { _ in
+        return renderer.image { context in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 }
 
-extension CropperUIView: UIScrollViewDelegate {
+// MARK: - UIScrollViewDelegate
+
+extension ImageCropperUIView: UIScrollViewDelegate {
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         return imageView
     }
     
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        updateContentInset()
-        centerImageView()
+        updateScrollViewInsets()
+    }
+    
+    private func updateScrollViewInsets() {
+        // Calculate insets to allow the image to be scrolled so any part can be in the crop area
+        let imageWidth = imageView.frame.width
+        let imageHeight = imageView.frame.height
+        
+        // We need enough inset so the image edges can reach the crop frame edges
+        // Top inset: allows bottom of image to reach bottom of crop frame
+        let topInset = max(0, cropFrame.maxY - imageHeight)
+        // Bottom inset: allows top of image to reach top of crop frame  
+        let bottomInset = max(0, bounds.height - cropFrame.minY)
+        // Left inset: allows right edge of image to reach right edge of crop frame
+        let leftInset = max(0, cropFrame.maxX - imageWidth)
+        // Right inset: allows left edge of image to reach left edge of crop frame
+        let rightInset = max(0, bounds.width - cropFrame.minX)
+        
+        scrollView.contentInset = UIEdgeInsets(
+            top: topInset,
+            left: leftInset,
+            bottom: bottomInset,
+            right: rightInset
+        )
     }
 }
 
-// Crop Overlay View
+// MARK: - Crop Overlay View
+
 class CropOverlayView: UIView {
     var cropRect: CGRect = .zero {
         didSet {
@@ -293,12 +365,15 @@ class CropOverlayView: UIView {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = .clear
-        isOpaque = false
+        setup()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        setup()
+    }
+    
+    private func setup() {
         backgroundColor = .clear
         isOpaque = false
     }
@@ -306,7 +381,7 @@ class CropOverlayView: UIView {
     override func draw(_ rect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else { return }
         
-        // Draw dimmed overlay
+        // Draw semi-transparent overlay
         context.setFillColor(UIColor.black.withAlphaComponent(0.6).cgColor)
         context.fill(bounds)
         
@@ -315,28 +390,34 @@ class CropOverlayView: UIView {
         context.fill(cropRect)
         context.setBlendMode(.normal)
         
-        // Draw border around crop area
+        // Draw white border
         context.setStrokeColor(UIColor.white.cgColor)
-        context.setLineWidth(1)
+        context.setLineWidth(2)
         context.stroke(cropRect)
         
-        // Draw grid lines (3x3)
+        // Draw grid lines
+        drawGrid(in: context)
+    }
+    
+    private func drawGrid(in context: CGContext) {
         context.setStrokeColor(UIColor.white.withAlphaComponent(0.3).cgColor)
         context.setLineWidth(0.5)
         
+        let numberOfLines = 3
+        
         // Vertical lines
-        let thirdWidth = cropRect.width / 3
-        for i in 1..<3 {
-            let x = cropRect.origin.x + thirdWidth * CGFloat(i)
-            context.move(to: CGPoint(x: x, y: cropRect.origin.y))
+        let columnWidth = cropRect.width / CGFloat(numberOfLines)
+        for i in 1..<numberOfLines {
+            let x = cropRect.origin.x + columnWidth * CGFloat(i)
+            context.move(to: CGPoint(x: x, y: cropRect.minY))
             context.addLine(to: CGPoint(x: x, y: cropRect.maxY))
         }
         
         // Horizontal lines
-        let thirdHeight = cropRect.height / 3
-        for i in 1..<3 {
-            let y = cropRect.origin.y + thirdHeight * CGFloat(i)
-            context.move(to: CGPoint(x: cropRect.origin.x, y: y))
+        let rowHeight = cropRect.height / CGFloat(numberOfLines)
+        for i in 1..<numberOfLines {
+            let y = cropRect.origin.y + rowHeight * CGFloat(i)
+            context.move(to: CGPoint(x: cropRect.minX, y: y))
             context.addLine(to: CGPoint(x: cropRect.maxX, y: y))
         }
         
