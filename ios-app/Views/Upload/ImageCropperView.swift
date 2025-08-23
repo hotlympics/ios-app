@@ -192,40 +192,76 @@ class CropperUIView: UIView {
         }
         
         print("📸 Starting crop - Image size: \(image.size), Crop rect: \(cropRect)")
+        print("📸 ScrollView contentOffset: \(scrollView.contentOffset), zoom: \(scrollView.zoomScale)")
+        print("📸 ScrollView contentInset: \(scrollView.contentInset)")
         
-        // Get the visible rect in scroll view coordinates
-        let visibleRect = CGRect(
-            x: scrollView.contentOffset.x,
-            y: scrollView.contentOffset.y,
-            width: cropRect.width,
-            height: cropRect.height
+        // Convert the crop rect from view coordinates to scroll view coordinates
+        let cropRectInScrollView = scrollView.convert(cropRect, from: self)
+        
+        // Calculate the visible content area
+        // The crop rect shows a portion of the scroll view's content
+        let visibleContentRect = CGRect(
+            x: scrollView.contentOffset.x + cropRectInScrollView.origin.x,
+            y: scrollView.contentOffset.y + cropRectInScrollView.origin.y,
+            width: cropRectInScrollView.width,
+            height: cropRectInScrollView.height
         )
         
-        print("📸 Visible rect: \(visibleRect), ScrollView zoom: \(scrollView.zoomScale)")
+        print("📸 Crop rect in scroll view: \(cropRectInScrollView)")
+        print("📸 Visible content rect: \(visibleContentRect)")
         
-        // Convert to image coordinates
-        let scale = imageView.frame.width / image.size.width
-        let imageRect = CGRect(
-            x: visibleRect.origin.x / scale,
-            y: visibleRect.origin.y / scale,
-            width: visibleRect.width / scale,
-            height: visibleRect.height / scale
+        // The imageView.frame tells us where the image is positioned in the scroll view's content
+        // Convert the visible rect to image coordinates
+        let imageViewFrame = imageView.frame
+        let imageX = (visibleContentRect.origin.x - imageViewFrame.origin.x) / imageViewFrame.width * image.size.width
+        let imageY = (visibleContentRect.origin.y - imageViewFrame.origin.y) / imageViewFrame.height * image.size.height
+        let imageWidth = visibleContentRect.width / imageViewFrame.width * image.size.width
+        let imageHeight = visibleContentRect.height / imageViewFrame.height * image.size.height
+        
+        let sourceRect = CGRect(x: imageX, y: imageY, width: imageWidth, height: imageHeight)
+        
+        print("📸 Source rect in image: \(sourceRect)")
+        
+        // Clamp to image bounds
+        let clampedRect = CGRect(
+            x: max(0, min(sourceRect.origin.x, image.size.width)),
+            y: max(0, min(sourceRect.origin.y, image.size.height)),
+            width: min(sourceRect.width, image.size.width - max(0, sourceRect.origin.x)),
+            height: min(sourceRect.height, image.size.height - max(0, sourceRect.origin.y))
         )
         
-        // Render the cropped portion
-        let renderer = UIGraphicsImageRenderer(size: cropSize)
-        let croppedImage = renderer.image { context in
-            // Draw the image scaled and positioned
-            let drawRect = CGRect(
-                x: -imageRect.origin.x * (cropSize.width / imageRect.width),
-                y: -imageRect.origin.y * (cropSize.height / imageRect.height),
-                width: image.size.width * (cropSize.width / imageRect.width),
-                height: image.size.height * (cropSize.height / imageRect.height)
-            )
-            image.draw(in: drawRect)
+        print("📸 Clamped rect: \(clampedRect)")
+        
+        // Crop using Core Graphics for accuracy
+        guard let cgImage = image.cgImage else { return nil }
+        
+        // Convert to CGImage coordinates (might be different due to orientation)
+        let cgImageWidth = CGFloat(cgImage.width)
+        let cgImageHeight = CGFloat(cgImage.height)
+        
+        let cgCropRect = CGRect(
+            x: clampedRect.origin.x / image.size.width * cgImageWidth,
+            y: clampedRect.origin.y / image.size.height * cgImageHeight,
+            width: clampedRect.width / image.size.width * cgImageWidth,
+            height: clampedRect.height / image.size.height * cgImageHeight
+        )
+        
+        guard let croppedCGImage = cgImage.cropping(to: cgCropRect) else { 
+            print("❌ Failed to crop CGImage")
+            return nil 
         }
         
-        return croppedImage
+        // Create UIImage from cropped CGImage
+        let croppedImage = UIImage(cgImage: croppedCGImage, scale: image.scale, orientation: image.imageOrientation)
+        
+        // Resize to exactly 400x400
+        let renderer = UIGraphicsImageRenderer(size: cropSize)
+        let finalImage = renderer.image { _ in
+            croppedImage.draw(in: CGRect(origin: .zero, size: cropSize))
+        }
+        
+        print("✅ Final cropped image size: \(finalImage.size)")
+        return finalImage
     }
     
     private func resizeImage(_ image: UIImage, targetSize: CGSize) -> UIImage? {
