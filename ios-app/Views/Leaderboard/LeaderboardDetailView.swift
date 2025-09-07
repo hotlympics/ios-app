@@ -15,7 +15,6 @@ struct LeaderboardDetailView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var showStats = true
     @GestureState private var isDragging = false
     
     var body: some View {
@@ -62,44 +61,39 @@ struct LeaderboardDetailView: View {
                 DragGesture()
                     .updating($isDragging) { _, state, _ in
                         state = true
-                    }
-                    .onChanged { value in
-                        if scale > 1.0 {
-                            // Allow panning when zoomed
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height
-                            )
-                        } else {
-                            // Swipe down to dismiss
-                            if value.translation.height > 0 {
-                                offset = CGSize(
-                                    width: 0,
-                                    height: value.translation.height
-                                )
-                            }
-                        }
-                    }
-                    .onEnded { value in
-                        if scale <= 1.0 && value.translation.height > 100 {
-                            // Dismiss if swiped down enough
-                            isPresented = false
-                        } else {
-                            lastOffset = offset
-                            if scale <= 1.0 {
-                                withAnimation(.spring()) {
-                                    offset = .zero
-                                    lastOffset = .zero
-                                }
-                            }
-                        }
-                    }
+                     }
+                     .onChanged { value in
+                         if scale > 1.0 {
+                             // Allow panning when zoomed
+                             offset = CGSize(
+                                 width: lastOffset.width + value.translation.width,
+                                 height: lastOffset.height + value.translation.height
+                             )
+                         } else {
+                             // Swipe down to dismiss
+                             if value.translation.height > 0 {
+                                 offset = CGSize(
+                                     width: 0,
+                                     height: value.translation.height
+                                 )
+                             }
+                         }
+                     }
+                     .onEnded { value in
+                         if scale <= 1.0 && value.translation.height > 100 {
+                             // Dismiss if swiped down enough
+                             isPresented = false
+                         } else {
+                             lastOffset = offset
+                             if scale <= 1.0 {
+                                 withAnimation(.spring()) {
+                                     offset = .zero
+                                     lastOffset = .zero
+                                 }
+                             }
+                         }
+                     }
             )
-            .onTapGesture {
-                withAnimation {
-                    showStats.toggle()
-                }
-            }
             .onTapGesture(count: 2) {
                 withAnimation(.spring()) {
                     if scale > 1.0 {
@@ -112,68 +106,22 @@ struct LeaderboardDetailView: View {
                 }
             }
             
-            // Stats Overlay
-            if showStats {
-                VStack {
-                    HStack {
-                        // Close button
-                        Button(action: { isPresented = false }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 30))
-                                .foregroundColor(.white.opacity(0.8))
-                                .background(Circle().fill(Color.black.opacity(0.3)))
-                        }
-                        .padding()
-                        
-                        Spacer()
+            // Close button overlay
+            VStack {
+                HStack {
+                    // Close button
+                    Button(action: { isPresented = false }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundColor(.white.opacity(0.8))
+                            .background(Circle().fill(Color.black.opacity(0.3)))
                     }
+                    .padding()
                     
                     Spacer()
-                    
-                    // Stats bar at bottom
-                    HStack(spacing: 30) {
-                        VStack(spacing: 4) {
-                            Text(entry.formattedRating)
-                                .font(.system(size: 24, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("Rating")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        
-                        VStack(spacing: 4) {
-                            Text("\(entry.battles)")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
-                            Text("Battles")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        
-                        VStack(spacing: 4) {
-                            Text(entry.formattedWinRate)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(.white)
-                            Text("Win Rate")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                    }
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 20)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.black.opacity(0.8),
-                                Color.black.opacity(0.6),
-                                Color.clear
-                            ]),
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                    )
                 }
-                .transition(.opacity)
+                
+                 Spacer()
             }
         }
     }

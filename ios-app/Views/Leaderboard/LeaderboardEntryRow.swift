@@ -29,65 +29,49 @@ struct LeaderboardEntryRow: View {
     
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Rank
-                ZStack {
-                    if isTopThree {
-                        Circle()
-                            .fill(rankColor.opacity(0.2))
-                            .frame(width: 36, height: 36)
+            VStack(spacing: 12) {
+                // Rank badge overlay on image
+                ZStack(alignment: .topLeading) {
+                    // Profile Image
+                    CachedAsyncImageView(urlString: entry.imageUrl) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
                     }
+                    .frame(width: 350, height: 350)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isTopThree ? rankColor.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: 2)
+                    )
                     
-                    Text("\(rank)")
-                        .font(.system(size: isTopThree ? 18 : 16, weight: isTopThree ? .bold : .semibold))
-                        .foregroundColor(isTopThree ? rankColor : .secondary)
-                }
-                .frame(width: 36)
-                
-                // Profile Image
-                CachedAsyncImageView(urlString: entry.imageUrl) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                }
-                .frame(width: 60, height: 60)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(isTopThree ? rankColor.opacity(0.5) : Color.gray.opacity(0.3), lineWidth: 2)
-                )
-                
-                // Spacer
-                Spacer()
-                
-                // Stats
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(entry.formattedRating)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.green)
-                    
-                    if entry.battles > 0 {
-                        HStack(spacing: 2) {
-                            Text("\(entry.wins)W")
-                                .foregroundColor(.green)
-                            Text("-")
-                                .foregroundColor(.secondary)
-                            Text("\(entry.losses)L")
-                                .foregroundColor(.red)
+                    // Rank badge
+                    ZStack {
+                        if isTopThree {
+                            Circle()
+                                .fill(rankColor)
+                                .frame(width: 32, height: 32)
+                        } else {
+                            Circle()
+                                .fill(Color.black)
+                                .frame(width: 32, height: 32)
                         }
-                        .font(.system(size: 12))
+                        
+                        Text("\(rank)")
+                            .font(.system(size: isTopThree ? 16 : 14, weight: .bold))
+                            .foregroundColor(.white)
                     }
+                    .offset(x: 12, y: 12)
                 }
                 
-                // Chevron
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary.opacity(0.5))
+                // Score underneath
+                Text("\(entry.formattedRating) pts")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.primary)
             }
-            .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 12)

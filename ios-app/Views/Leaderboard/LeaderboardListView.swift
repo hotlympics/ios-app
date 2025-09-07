@@ -29,11 +29,11 @@ struct LeaderboardListView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 40)
         } else {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: 24) {
                 ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                     LeaderboardEntryRow(
                         entry: entry,
-                        rank: index + 4,  // Starting from rank 4 since top 3 are in podium
+                        rank: index + 1,  // Starting from rank 1 for uniform list
                         onTap: { onEntryTap(entry) }
                     )
                 }

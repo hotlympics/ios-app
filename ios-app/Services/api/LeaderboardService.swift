@@ -9,28 +9,22 @@ import Foundation
 
 enum LeaderboardType: String, CaseIterable {
     case femaleTop = "female_top"
-    case femaleBottom = "female_bottom"
     case maleTop = "male_top"
-    case maleBottom = "male_bottom"
     
     var displayName: String {
         switch self {
         case .femaleTop:
-            return "Top Women"
-        case .femaleBottom:
-            return "Bottom Women"
+            return "Women"
         case .maleTop:
-            return "Top Men"
-        case .maleBottom:
-            return "Bottom Men"
+            return "Men"
         }
     }
     
     var gender: String {
         switch self {
-        case .femaleTop, .femaleBottom:
+        case .femaleTop:
             return "female"
-        case .maleTop, .maleBottom:
+        case .maleTop:
             return "male"
         }
     }
