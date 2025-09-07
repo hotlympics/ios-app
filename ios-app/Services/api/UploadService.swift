@@ -11,7 +11,7 @@ import UIKit
 class UploadService: ObservableObject {
     static let shared = UploadService()
     
-    private let baseURL = "http://localhost:3000"
+    private let baseURL = Constants.API.baseURL
     
     @Published var isUploading = false
     @Published var uploadProgress: Double = 0.0

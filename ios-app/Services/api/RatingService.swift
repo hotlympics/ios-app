@@ -11,7 +11,7 @@ class RatingService {
     static let shared = RatingService()
     
     // Use the same API URL as ImageQueueService
-    private let apiUrl = "http://localhost:3000"
+    private let apiUrl = Constants.API.baseURL
     
     private init() {}
     

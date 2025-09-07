@@ -17,7 +17,7 @@ class AuthService: NSObject, ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
-    private let baseURL = "http://localhost:3000"
+    private let baseURL = Constants.API.baseURL
     private var currentNonce: String?
     
     struct User: Codable {

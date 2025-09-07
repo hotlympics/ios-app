@@ -14,7 +14,7 @@ class UserService: ObservableObject {
     @Published var poolPhotosCount: Int = 0
     @Published var userPhotos: [UserPhoto] = []
     
-    private let baseURL = "http://localhost:3000"
+    private let baseURL = Constants.API.baseURL
     private var lastFetchTime: Date?
     private let cacheValidityDuration: TimeInterval = 300 // 5 minutes
     private let preloader = ImagePreloader.shared

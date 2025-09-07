@@ -134,7 +134,7 @@ After making changes, build the project and fix any warnings or errors. Test on 
    - Image queue and caches reset appropriately
 
 ### API Integration
-- **Base URL**: Currently hardcoded to `http://localhost:3000` in Constants.swift
+- **Base URL**: Currently set to `https://hotlympics-server-670297845147.us-central1.run.app` in Constants.swift
 - **Endpoints Used**:
   - `GET /images/block?gender={gender}&count={count}` - Fetch image blocks
   - `POST /ratings` - Submit rating with winnerId/loserId

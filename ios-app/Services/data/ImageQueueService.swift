@@ -13,7 +13,7 @@ class ImageQueueService: ObservableObject {
     // Update this to match your server URL
     // For local development: "http://localhost:3000"
     // For production: your actual server URL
-    private let apiUrl = "http://localhost:3000"
+    private let apiUrl = Constants.API.baseURL
     private let blockSize = 10
     private let preloader = ImagePreloader.shared
     

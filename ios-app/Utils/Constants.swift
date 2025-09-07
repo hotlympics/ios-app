@@ -12,7 +12,7 @@ struct Constants {
     static let currentToSVersion = "1.0"
     
     struct API {
-        static let baseURL = "http://localhost:3000"
+        static let baseURL = "https://hotlympics-server-670297845147.us-central1.run.app"
         static let timeout: TimeInterval = 30
         
         struct Endpoints {
