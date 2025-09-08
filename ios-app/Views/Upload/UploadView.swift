@@ -15,6 +15,9 @@ struct UploadView: View {
     var body: some View {
         NavigationView {
             ZStack {
+                Color.black
+                    .ignoresSafeArea()
+                
                 VStack(spacing: 24) {
                     if viewModel.isUploading {
                         UploadProgressView(

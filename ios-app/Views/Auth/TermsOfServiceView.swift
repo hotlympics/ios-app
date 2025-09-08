@@ -131,7 +131,7 @@ struct TermsOfServiceView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 16)
                 }
-                .background(Color(.systemGray6))
+                .background(Color.black)
                 .cornerRadius(12)
                 .padding(.horizontal, 16)
             }
@@ -187,7 +187,7 @@ struct TermsOfServiceView: View {
             .padding(.top, 16)
             .padding(.bottom, 40)
         }
-        .background(Color(.systemBackground))
+        .background(Color.black)
     }
     
     private func acceptTerms() {

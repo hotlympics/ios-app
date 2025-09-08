@@ -88,7 +88,7 @@ struct SignInView: View {
                 Spacer()
                 Spacer()
             }
-            .background(Color(UIColor.systemGray6))
+            .background(Color.black)
             .navigationBarHidden(true)
             .alert("Sign In Error", isPresented: $showingError) {
                 Button("OK", role: .cancel) { }

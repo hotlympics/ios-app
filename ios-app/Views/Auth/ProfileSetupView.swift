@@ -45,7 +45,7 @@ struct ProfileSetupView: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemBackground))
+                .background(Color.black)
                 .onAppear {
                     Task {
                         await loadUserData()

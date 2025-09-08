@@ -42,7 +42,7 @@ struct SignInPromptView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemGray6))
+        .background(Color.black)
         .sheet(isPresented: $showingSignIn) {
             SignInView(onAuthenticationSuccess: onAuthenticationSuccess)
         }

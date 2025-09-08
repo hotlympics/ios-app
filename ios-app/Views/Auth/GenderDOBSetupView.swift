@@ -88,7 +88,7 @@ struct GenderDOBSetupView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(Color(.systemGray6))
+                    .background(Color.black)
                     .cornerRadius(10)
                 }
                 
@@ -142,7 +142,7 @@ struct GenderDOBSetupView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
         }
-        .background(Color(.systemBackground))
+        .background(Color.black)
     }
     
     private var isFormValid: Bool {
@@ -181,7 +181,7 @@ struct GenderButton: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .background(isSelected ? Color.blue : Color(.systemGray6))
+                .background(isSelected ? Color.blue : Color.black)
                 .foregroundColor(isSelected ? .white : .primary)
                 .cornerRadius(10)
         }
