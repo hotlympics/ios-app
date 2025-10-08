@@ -106,7 +106,7 @@ struct MyPhotosView: View {
                     }
             }
         } else {
-            SignInPromptView(message: "Sign in to view your photos", onAuthenticationSuccess: onAuthenticationSuccess)
+            DemoMyPhotosView(onAuthenticationSuccess: onAuthenticationSuccess)
         }
     }
 }
