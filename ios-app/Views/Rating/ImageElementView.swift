@@ -89,7 +89,7 @@ struct ImageElement: View {
                 userId: "user-1",
                 imageUrl: "https://via.placeholder.com/300x400/FF6B6B/FFFFFF?text=Test+Image",
                 gender: "female",
-                dateOfBirth: ISO8601DateFormatter().string(from: Date()),
+                dateOfBirth: FirestoreTimestamp(_seconds: Int(Date().timeIntervalSince1970), _nanoseconds: 0),
                 battles: 100,
                 wins: 50,
                 losses: 50,

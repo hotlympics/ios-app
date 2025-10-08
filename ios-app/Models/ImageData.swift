@@ -36,7 +36,7 @@ struct ImageData: Codable, Identifiable {
     let userId: String
     let imageUrl: String
     let gender: String
-    let dateOfBirth: String  // ISO 8601 date string from server
+    let dateOfBirth: FirestoreTimestamp
     let battles: Int
     let wins: Int
     let losses: Int
@@ -44,17 +44,11 @@ struct ImageData: Codable, Identifiable {
     let glicko: GlickoState
     let inPool: Bool
     let status: String?
-    
+
     var id: String { imageId }
-    
-    var birthDate: Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: dateOfBirth) {
-            return date
-        }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: dateOfBirth)
+
+    var birthDate: Date {
+        return dateOfBirth.date
     }
 }
 

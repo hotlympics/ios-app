@@ -20,16 +20,16 @@ struct MyPhotosView: View {
         if viewModel.isAuthenticated {
                 VStack(spacing: 0) {
                     // Header
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(spacing: 8) {
                         Text("My Photos")
-                            .font(.largeTitle)
+                            .font(.title2)
                             .fontWeight(.bold)
                         
                         Text("\(viewModel.userPhotos.count)/10 photos uploaded")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                     .padding()
                     
                     // Pool selection bar
