@@ -28,7 +28,10 @@ struct UploadView: View {
                         LoadingView(message: "Loading image...")
                     } else {
                         PhotoSourcePickerView(
-                            onSelectSource: viewModel.showPhotoSourcePicker
+                            onSelectSource: viewModel.showPhotoSourcePicker,
+                            showingActionSheet: $viewModel.showingActionSheet,
+                            onSelectPhotoLibrary: viewModel.selectPhotoLibrary,
+                            onSelectCamera: viewModel.selectCamera
                         )
                     }
                 }
@@ -43,15 +46,6 @@ struct UploadView: View {
                     }
                     .disabled(viewModel.isLoadingImage || viewModel.isUploading)
                 }
-            }
-            .confirmationDialog("Choose Photo Source", isPresented: $viewModel.showingActionSheet) {
-                Button("Photo Library") {
-                    viewModel.selectPhotoLibrary()
-                }
-                Button("Take Photo") {
-                    viewModel.selectCamera()
-                }
-                Button("Cancel", role: .cancel) {}
             }
             .photosPicker(
                 isPresented: $viewModel.showingImagePicker,

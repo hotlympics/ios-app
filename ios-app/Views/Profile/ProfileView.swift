@@ -12,10 +12,19 @@ struct ProfileView: View {
     @StateObject private var userService = UserService.shared
     
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             if authService.isAuthenticated, let user = authService.currentUser {
                 // Authenticated User View
-                
+
+                // Header
+                VStack(spacing: 8) {
+                    Text("Profile")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+
                 VStack(spacing: 30) {
                         // Email
                         Text(user.email ?? "No email")
