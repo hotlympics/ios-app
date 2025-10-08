@@ -78,7 +78,7 @@ struct DemoMyPhotosView: View {
             VStack {
                 Spacer()
 
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     Text("Ready to Find Out How Your Photos Compare?")
                         .font(.headline)
                         .fontWeight(.bold)
@@ -89,7 +89,7 @@ struct DemoMyPhotosView: View {
                     Button(action: {
                         showingSignIn = true
                     }) {
-                        Text("Sign In or Sign Up")
+                        Text("Sign In")
                             .font(.body)
                             .fontWeight(.semibold)
                             .foregroundColor(.white)
@@ -100,7 +100,7 @@ struct DemoMyPhotosView: View {
                     }
                     .padding(.horizontal, 40)
                 }
-                .padding(.top, 16)
+                .padding(.top, 14)
                 .padding(.bottom, 16)
                 .background(
                     Color(UIColor.systemGray6)

@@ -61,7 +61,7 @@ struct DemoPhotoCellView: View {
                 Spacer()
                 HStack(alignment: .bottom) {
                     // Rating (bottom-left)
-                    Text("\(photo.rating)")
+                    Text(String(photo.rating))
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
@@ -74,11 +74,11 @@ struct DemoPhotoCellView: View {
 
                     // Win/Loss (bottom-right)
                     HStack(spacing: 2) {
-                        Text("\(photo.wins)")
+                        Text(String(photo.wins))
                             .foregroundColor(.green)
                         Text("/")
                             .foregroundColor(.white)
-                        Text("\(photo.losses)")
+                        Text(String(photo.losses))
                             .foregroundColor(.red)
                     }
                     .font(.caption)
