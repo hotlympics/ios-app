@@ -69,6 +69,43 @@ struct PhotoCellView: View {
                     Spacer()
                 }
                 
+                // Rating and Win/Loss overlays (bottom)
+                if let stats = photo.stats {
+                    VStack {
+                        Spacer()
+                        HStack(alignment: .bottom) {
+                            // Rating (bottom-left)
+                            Text(String(Int(stats.rating)))
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.black)
+                                .cornerRadius(4)
+
+                            Spacer()
+
+                            // Win/Loss (bottom-right)
+                            HStack(spacing: 2) {
+                                Text(String(stats.wins))
+                                    .foregroundColor(.green)
+                                Text("/")
+                                    .foregroundColor(.white)
+                                Text(String(stats.losses))
+                                    .foregroundColor(.red)
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black)
+                            .cornerRadius(4)
+                        }
+                        .padding(4)
+                    }
+                }
+
                 // Deleting overlay
                 if isDeleting {
                     Rectangle()

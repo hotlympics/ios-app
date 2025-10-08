@@ -61,26 +61,42 @@ class UserService: ObservableObject {
         }
         
         do {
-            // Fetch user images
-            let imagesURL = URL(string: "\(baseURL)/images/user")!
+            // Fetch user images with metadata
+            let imagesURL = URL(string: "\(baseURL)/images/user/withmetadata")!
             var request = URLRequest(url: imagesURL)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            
+
             let (data, _) = try await URLSession.shared.data(for: request)
-            
+
             if let images = try? JSONDecoder().decode([ImageResponse].self, from: data) {
                 // Preload all images to cache
                 for image in images {
                     preloader.loadImage(from: image.url)
                 }
-                
+
                 await MainActor.run {
                     self.userPhotos = images.map { image in
-                        UserPhoto(
+                        // Create stats if we have the data
+                        let stats: PhotoStats? = {
+                            guard let rating = image.glicko?.rating,
+                                  let wins = image.wins,
+                                  let losses = image.losses,
+                                  let battles = image.battles else {
+                                return nil
+                            }
+                            return PhotoStats(
+                                rating: rating,
+                                wins: wins,
+                                losses: losses,
+                                battles: battles
+                            )
+                        }()
+
+                        return UserPhoto(
                             id: image.id,
                             url: image.url,
-                            isInPool: false, // Will need to be fetched from user data
-                            stats: nil // Will be added when API supports it
+                            isInPool: false, // Will be updated from user profile
+                            stats: stats
                         )
                     }
                     self.uploadedPhotosCount = images.count
@@ -219,6 +235,14 @@ class UserService: ObservableObject {
 private struct ImageResponse: Decodable {
     let id: String
     let url: String
+    let battles: Int?
+    let wins: Int?
+    let losses: Int?
+    let glicko: GlickoResponse?
+}
+
+private struct GlickoResponse: Decodable {
+    let rating: Double
 }
 
 private struct UserProfile: Decodable {
